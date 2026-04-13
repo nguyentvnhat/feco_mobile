@@ -1,30 +1,43 @@
-/vendor/
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
 node_modules/
-npm-debug.log
-yarn-error.log
 
-# Laravel 4 specific
-bootstrap/compiled.php
-app/storage/
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
 
-# Laravel 5 & Lumen specific
-public/storage
-public/hot
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 
-# Laravel 5 & Lumen specific with changed public path
-public_html/storage
-public_html/hot
+# Metro
+.metro-health-check*
 
-storage/*.key
-.env
-Homestead.yaml
-Homestead.json
-/.vagrant
-.phpunit.result.cache
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
-/public/build
-/storage/pail
-.env.backup
-.env.production
-.phpactor.json
-auth.json
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# generated native folders
+/ios
+/android
