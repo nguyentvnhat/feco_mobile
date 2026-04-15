@@ -11,17 +11,20 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { authService } from '@/src/features/auth/auth.service';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  function handleSignIn() {
+  async function handleSignIn() {
     setEmailError('');
     setPasswordError('');
+    setFormError('');
 
     let valid = true;
     if (!email.trim()) {
@@ -35,10 +38,23 @@ export default function LoginScreen() {
     if (!valid) return;
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const response = await authService.login({
+        email: email.trim(),
+        password,
+      });
+
+      if (response.success) {
+        router.replace('/(tabs)');
+        return;
+      }
+
+      setFormError(response.message || 'Sign in failed. Please try again.');
+    } catch {
+      setFormError('Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
-      router.replace('/(main)');
-    }, 1000);
+    }
   }
 
   return (
@@ -115,6 +131,7 @@ export default function LoginScreen() {
                   <Text className="text-base font-semibold text-white">Sign In</Text>
                 )}
               </Pressable>
+              {formError ? <Text className="mt-3 text-sm text-red-600">{formError}</Text> : null}
             </View>
 
             <Text className="mt-8 text-center text-xs text-slate-500">Internal access only</Text>
