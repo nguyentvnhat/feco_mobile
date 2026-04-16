@@ -1,0 +1,20 @@
+{
+  "auth": {
+    "login": {
+      "title": "FECO Nội bộ",
+      "subtitle": "Đăng nhập để tiếp tục",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@company.com",
+      "passwordLabel": "Mật khẩu",
+      "passwordPlaceholder": "••••••••",
+      "submit": "Đăng nhập",
+      "internalOnly": "Chỉ dành cho truy cập nội bộ",
+      "errors": {
+        "emailRequired": "Email là bắt buộc",
+        "passwordRequired": "Mật khẩu là bắt buộc",
+        "signInFailed": "Đăng nhập thất bại. Vui lòng thử lại.",
+        "unknown": "Có lỗi xảy ra. Vui lòng thử lại."
+      }
+    }
+  }
+}

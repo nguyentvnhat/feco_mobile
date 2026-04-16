@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+import '../i18n';
 import '../global.css';
 
 export const unstable_settings = {

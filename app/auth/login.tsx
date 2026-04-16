@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authService } from '@/src/features/auth/auth.service';
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -28,11 +30,11 @@ export default function LoginScreen() {
 
     let valid = true;
     if (!email.trim()) {
-      setEmailError('Email is required');
+      setEmailError(t('auth.login.errors.emailRequired'));
       valid = false;
     }
     if (!password) {
-      setPasswordError('Password is required');
+      setPasswordError(t('auth.login.errors.passwordRequired'));
       valid = false;
     }
     if (!valid) return;
@@ -45,13 +47,13 @@ export default function LoginScreen() {
       });
 
       if (response.success) {
-        router.replace('/(tabs)');
+        router.replace('/(main)');
         return;
       }
 
-      setFormError(response.message || 'Sign in failed. Please try again.');
+      setFormError(response.message || t('auth.login.errors.signInFailed'));
     } catch {
-      setFormError('Something went wrong. Please try again.');
+      setFormError(t('auth.login.errors.unknown'));
     } finally {
       setLoading(false);
     }
@@ -68,20 +70,22 @@ export default function LoginScreen() {
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
           <View className="mx-auto w-full max-w-md px-6 py-10">
             <Text className="text-center text-2xl font-semibold tracking-tight text-slate-900">
-              FECO Internal
+              {t('auth.login.title')}
             </Text>
-            <Text className="mt-2 text-center text-sm text-slate-600">Sign in to continue</Text>
+            <Text className="mt-2 text-center text-sm text-slate-600">
+              {t('auth.login.subtitle')}
+            </Text>
 
             <View className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5">
               <View>
                 <Text className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Email
+                  {t('auth.login.emailLabel')}
                 </Text>
                 <TextInput
                   className={`rounded-lg border bg-white px-3 py-3 text-base text-slate-900 placeholder:text-slate-400 ${
                     emailError ? 'border-red-500' : 'border-slate-200'
                   }`}
-                  placeholder="you@company.com"
+                  placeholder={t('auth.login.emailPlaceholder')}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -99,13 +103,13 @@ export default function LoginScreen() {
 
               <View className="mt-5">
                 <Text className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Password
+                  {t('auth.login.passwordLabel')}
                 </Text>
                 <TextInput
                   className={`rounded-lg border bg-white px-3 py-3 text-base text-slate-900 placeholder:text-slate-400 ${
                     passwordError ? 'border-red-500' : 'border-slate-200'
                   }`}
-                  placeholder="••••••••"
+                  placeholder={t('auth.login.passwordPlaceholder')}
                   secureTextEntry
                   editable={!loading}
                   value={password}
@@ -128,13 +132,17 @@ export default function LoginScreen() {
                 {loading ? (
                   <ActivityIndicator color="#f8fafc" />
                 ) : (
-                  <Text className="text-base font-semibold text-white">Sign In</Text>
+                  <Text className="text-base font-semibold text-white">
+                    {t('auth.login.submit')}
+                  </Text>
                 )}
               </Pressable>
               {formError ? <Text className="mt-3 text-sm text-red-600">{formError}</Text> : null}
             </View>
 
-            <Text className="mt-8 text-center text-xs text-slate-500">Internal access only</Text>
+            <Text className="mt-8 text-center text-xs text-slate-500">
+              {t('auth.login.internalOnly')}
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
