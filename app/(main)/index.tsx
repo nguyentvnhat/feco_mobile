@@ -1,7 +1,8 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { mapOrderToRecentRow, ordersService } from '@/src/features/orders';
@@ -100,7 +101,14 @@ export default function HomeScreen() {
               <Text className="text-xl font-semibold text-slate-900">Lối tắt</Text>
               <View className="mt-4 flex-row justify-between">
                 {shortcuts.map((item) => (
-                  <View key={item.id} className="items-center">
+                  <Pressable
+                    key={item.id}
+                    className="items-center active:opacity-80"
+                    onPress={() => {
+                      if (item.id === 'create-order') {
+                        router.push('/(main)/create-order');
+                      }
+                    }}>
                     <View
                       className="h-14 w-14 items-center justify-center rounded-xl"
                       style={{ backgroundColor: item.bg }}>
@@ -111,7 +119,7 @@ export default function HomeScreen() {
                       />
                     </View>
                     <Text className="mt-2 text-sm font-semibold text-slate-600">{item.label}</Text>
-                  </View>
+                  </Pressable>
                 ))}
               </View>
             </View>

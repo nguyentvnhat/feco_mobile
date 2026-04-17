@@ -53,6 +53,13 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="create-order"
+        options={{
+          href: null,
+          title: 'Tạo đơn',
+        }}
+      />
     </Tabs>
   );
 }

@@ -1,7 +1,7 @@
 import { api } from '@/src/lib/api';
 import { clearSession, setAccessToken, setRefreshToken } from '@/src/lib/auth-token';
 
-import type { LoginPayload, LoginResponse } from './auth.types';
+import type { LoginPayload, LoginResponse, MeResponse } from './auth.types';
 
 type RawLoginResponse = {
   success?: boolean;
@@ -89,6 +89,10 @@ export const authService = {
         message: rawMessage && !isGenericNetworkError ? rawMessage : fallbackMessage,
       };
     }
+  },
+
+  async me(): Promise<MeResponse> {
+    return api.get<MeResponse>('/auth/me');
   },
 
   async logout(): Promise<{ success: boolean; message: string }> {

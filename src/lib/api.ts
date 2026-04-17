@@ -24,6 +24,14 @@ function extractErrorMessage(data: unknown) {
       return nestedError.message;
     }
   }
+  if (candidate.errors && typeof candidate.errors === 'object') {
+    const errors = candidate.errors as Record<string, unknown>;
+    for (const msgs of Object.values(errors)) {
+      if (Array.isArray(msgs) && msgs.length > 0 && typeof msgs[0] === 'string') {
+        return msgs[0];
+      }
+    }
+  }
   return '';
 }
 
