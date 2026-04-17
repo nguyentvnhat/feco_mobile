@@ -1,9 +1,11 @@
+import { getAccessToken, getRefreshToken } from './auth-token';
 import { env } from './env';
 
 type RequestConfig = {
-  method: 'POST';
+  method: 'GET' | 'POST';
   path: string;
   body?: unknown;
+  searchParams?: Record<string, string | number | boolean | undefined>;
 };
 
 function extractErrorMessage(data: unknown) {
@@ -25,23 +27,42 @@ function extractErrorMessage(data: unknown) {
   return '';
 }
 
-function buildUrl(path: string) {
+function buildUrl(path: string, searchParams?: Record<string, string | number | boolean | undefined>) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const baseUrl = env.apiBaseUrl.replace(/\/+$/, '');
   const apiPrefix = '/api/v1';
   const normalizedBaseUrl = baseUrl.endsWith(apiPrefix) ? baseUrl : `${baseUrl}${apiPrefix}`;
-  return `${normalizedBaseUrl}${normalizedPath}`;
+  let url = `${normalizedBaseUrl}${normalizedPath}`;
+  if (searchParams) {
+    const entries = Object.entries(searchParams).filter(
+      ([, v]) => v !== undefined && v !== '',
+    ) as [string, string | number | boolean][];
+    if (entries.length > 0) {
+      const qs = new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+      url += `?${qs}`;
+    }
+  }
+  return url;
 }
 
-async function request<T>({ method, path, body }: RequestConfig): Promise<T> {
-  const url = buildUrl(path);
+async function request<T>({ method, path, body, searchParams }: RequestConfig): Promise<T> {
+  const url = buildUrl(path, searchParams);
+  const token = getAccessToken();
+  const refresh = getRefreshToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(refresh ? { 'X-Refresh-Token': refresh } : {}),
+  };
+  const serializedBody =
+    method === 'POST' ? JSON.stringify(body !== undefined ? body : {}) : undefined;
+  if (method === 'POST') {
+    headers['Content-Type'] = 'application/json';
+  }
   const response = await fetch(url, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
+    headers,
+    body: serializedBody,
   });
 
   const data = (await response.json().catch(() => null)) as T | null;
@@ -55,6 +76,9 @@ async function request<T>({ method, path, body }: RequestConfig): Promise<T> {
 }
 
 export const api = {
+  get<T>(path: string, searchParams?: Record<string, string | number | boolean | undefined>) {
+    return request<T>({ method: 'GET', path, searchParams });
+  },
   post<T>(path: string, body?: unknown) {
     return request<T>({ method: 'POST', path, body });
   },

@@ -6,4 +6,6 @@ export type LoginPayload = {
 export type LoginResponse = {
   success: boolean;
   message: string;
+  /** Sanctum token when login succeeds */
+  token?: string;
 };

@@ -13,16 +13,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authService } from '@/src/features/auth/auth.service';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
 
 export default function LoginScreen() {
   const { t } = useTranslation();
-  const theme = useColorScheme() ?? 'light';
-  const buttonColor = Colors[theme].tint;
-  const buttonDisabledColor = Colors[theme].icon;
-  const buttonTextColor = Colors[theme].background;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -48,14 +41,10 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      console.log('email', email);
-      console.log('password', password);
       const response = await authService.login({
         login: email.trim(),
         password,
       });
-
-      console.log(response);
 
       if (response.success) {
         router.replace('/(main)');
@@ -135,19 +124,15 @@ export default function LoginScreen() {
               </View>
 
               <Pressable
-                className="mt-8 items-center justify-center rounded-lg py-3.5"
-                style={({ pressed }) => ({
-                  backgroundColor: loading ? buttonDisabledColor : buttonColor,
-                  opacity: pressed && !loading ? 0.9 : 1,
-                })}
+                className={`mt-8 items-center justify-center rounded-lg py-3.5 ${
+                  loading ? 'bg-slate-400' : 'bg-slate-900 active:bg-slate-800'
+                }`}
                 disabled={loading}
                 onPress={handleSignIn}>
                 {loading ? (
-                  <ActivityIndicator color={buttonTextColor} />
+                  <ActivityIndicator color="#f8fafc" />
                 ) : (
-                  <Text className="text-base font-semibold" style={{ color: buttonTextColor }}>
-                    {t('auth.login.submit')}
-                  </Text>
+                  <Text className="text-base font-semibold text-white">{t('auth.login.submit')}</Text>
                 )}
               </Pressable>
               {formError ? <Text className="mt-3 text-sm text-red-600">{formError}</Text> : null}
