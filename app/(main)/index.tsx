@@ -78,17 +78,17 @@ export default function HomeScreen() {
 
             <View className="mt-4 rounded-xl bg-green-500 px-5 py-5 shadow-sm">
               <Text className="text-base font-semibold text-green-100">Doanh số tháng này</Text>
-              <Text className="mt-1 text-4xl font-extrabold text-white">125.400.000đ</Text>
+              <Text className="mt-1 text-2xl font-semibold tracking-tight text-white">125.400.000đ</Text>
 
               <View className="mt-4 flex-row items-end justify-between">
                 <View>
                   <Text className="text-xs font-semibold uppercase tracking-wide text-green-100">
                     MỤC TIÊU THÁNG
                   </Text>
-                  <Text className="mt-0.5 text-3xl font-extrabold text-white">150.000.000đ</Text>
+                  <Text className="mt-0.5 text-2xl font-semibold tracking-tight text-white">150.000.000đ</Text>
                 </View>
                 <View className="rounded-md bg-white/20 px-3 py-1">
-                  <Text className="text-base font-semibold text-green-50">83.6%</Text>
+                  <Text className="text-sm font-semibold text-green-50">83.6%</Text>
                 </View>
               </View>
 
@@ -98,7 +98,7 @@ export default function HomeScreen() {
             </View>
 
             <View style={{ marginTop: Spacings.xxl }}>
-              <Text className="text-xl font-semibold text-slate-900">Lối tắt</Text>
+              <Text className="text-base font-semibold text-slate-900">Lối tắt</Text>
               <View className="mt-4 flex-row justify-between">
                 {shortcuts.map((item) => (
                   <Pressable
@@ -126,8 +126,10 @@ export default function HomeScreen() {
 
             <View style={{ marginTop: Spacings.padding }}>
               <View className="flex-row items-center justify-between">
-                <Text className="text-xl font-semibold text-slate-900">Đơn hàng gần đây</Text>
-                <Text className="text-base font-semibold text-green-600">Xem tất cả</Text>
+                <Text className="text-base font-semibold text-slate-900">Đơn hàng gần đây</Text>
+                <Pressable onPress={() => router.push('/(main)/orders')}>
+                  <Text className="text-base font-semibold text-green-600">Xem tất cả</Text>
+                </Pressable>
               </View>
 
               <View style={{ marginTop: Spacings.xxl, gap: Spacings.xl }}>
@@ -141,7 +143,10 @@ export default function HomeScreen() {
                   <Text className="text-center text-sm text-slate-500">Chưa có đơn hàng.</Text>
                 ) : (
                   recentOrders.map((order) => (
-                    <View key={order.id} className="rounded-xl bg-white p-4 shadow-sm">
+                    <Pressable
+                      key={order.id}
+                      className="rounded-xl bg-white p-4 shadow-sm active:opacity-90"
+                      onPress={() => router.push('/(main)/order-detail')}>
                       <View className="flex-row items-start justify-between">
                         <View className="mr-3 flex-1">
                           <Text className="text-base font-semibold text-slate-900">{order.code}</Text>
@@ -158,7 +163,7 @@ export default function HomeScreen() {
                           </View>
                         </View>
                       </View>
-                    </View>
+                    </Pressable>
                   ))
                 )}
               </View>

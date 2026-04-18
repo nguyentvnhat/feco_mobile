@@ -5,7 +5,11 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authService } from '@/src/features/auth/auth.service';
 
-const menuItems = ['Lịch sử đơn hàng', 'Cài đặt ứng dụng', 'Chính sách hoa hồng'];
+const menuItems = [
+  { key: 'commission-history', label: 'Lịch sử hoa hồng' },
+  { key: 'app-settings', label: 'Cài đặt ứng dụng' },
+  { key: 'commission-policy', label: 'Chính sách hoa hồng' },
+];
 
 export default function AccountRoute() {
   const [loading, setLoading] = useState(true);
@@ -27,9 +31,10 @@ export default function AccountRoute() {
         const agent = response.data?.agent;
         setName(agent?.business_name || user?.name || 'FECO X3');
         setRoleText(agent?.name ? `Đại lý ${agent.name}` : 'Đại lý chính thức');
-        setAgentCode(agent?.id ? `ID-${agent.id}` : '---');
+        setAgentCode(agent?.code || (agent?.id ? `ID-${agent.id}` : '---'));
         setPhone(user?.phone || '---');
         setEmail(user?.email || '---');
+        setAddress(agent?.full_address || '---');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -119,14 +124,19 @@ export default function AccountRoute() {
 
         <View className="mt-4 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm shadow-slate-900/5">
           {menuItems.map((item, idx) => (
-            <View
-              key={item}
+            <Pressable
+              key={item.key}
               className={`flex-row items-center justify-between px-5 py-4 ${
                 idx === 0 ? '' : 'border-t border-slate-100'
-              }`}>
-              <Text className="text-base font-semibold text-slate-800">{item}</Text>
+              }`}
+              onPress={() => {
+                if (item.key === 'commission-history') {
+                  router.push('/(main)/commission-history');
+                }
+              }}>
+              <Text className="text-base font-semibold text-slate-800">{item.label}</Text>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </View>
+            </Pressable>
           ))}
         </View>
 

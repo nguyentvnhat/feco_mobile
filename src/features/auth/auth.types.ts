@@ -22,8 +22,10 @@ export type MeResponse = {
     };
     agent?: {
       id: number;
+      code?: string | null;
       business_name?: string | null;
       name?: string | null;
+      full_address?: string | null;
     } | null;
   };
 };

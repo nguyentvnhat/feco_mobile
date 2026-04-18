@@ -27,9 +27,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="products"
+        name="orders"
         options={{
-          title: 'Sản phẩm',
+          title: 'Đơn hàng',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="inventory-2" size={size ?? 24} color={color} />
           ),
@@ -58,6 +58,20 @@ export default function TabLayout() {
         options={{
           href: null,
           title: 'Tạo đơn',
+        }}
+      />
+      <Tabs.Screen
+        name="order-detail"
+        options={{
+          href: null,
+          title: 'Chi tiết đơn hàng',
+        }}
+      />
+      <Tabs.Screen
+        name="commission-history"
+        options={{
+          href: null,
+          title: 'Hoa hồng của tôi',
         }}
       />
     </Tabs>
