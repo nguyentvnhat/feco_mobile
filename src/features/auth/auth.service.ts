@@ -1,5 +1,5 @@
 import { api } from '@/src/lib/api';
-import { clearSession, setAccessToken, setRefreshToken } from '@/src/lib/auth-token';
+import { clearAllSession } from '@/src/lib/secure-session';
 
 import type { LoginPayload, LoginResponse, MeResponse } from './auth.types';
 
@@ -65,15 +65,11 @@ export const authService = {
         };
       }
 
-      setAccessToken(access);
-      if (refresh) {
-        setRefreshToken(refresh);
-      }
-
       return {
         success: true,
         message: response.message ?? '',
         token: access,
+        refreshToken: refresh,
       };
     } catch (error) {
       const fallbackMessage = 'Đăng nhập thất bại. Vui lòng thử lại.';
@@ -98,14 +94,11 @@ export const authService = {
   async logout(): Promise<{ success: boolean; message: string }> {
     try {
       await api.post<unknown>('/auth/logout', {});
-      clearSession();
-      return { success: true, message: '' };
-    } catch (error) {
-      const rawMessage = error instanceof Error ? error.message.trim() : '';
-      return {
-        success: false,
-        message: rawMessage || 'Đăng xuất thất bại.',
-      };
+    } catch {
+      // Still clear local session if the server is unreachable or returns an error.
+    } finally {
+      await clearAllSession();
     }
+    return { success: true, message: '' };
   },
 };

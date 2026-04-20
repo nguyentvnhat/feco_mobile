@@ -12,9 +12,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { authService } from '@/src/features/auth/auth.service';
+import { authService, useAuth } from '@/src/features/auth';
 
 export default function LoginScreen() {
+  const { setSession } = useAuth();
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,7 +47,8 @@ export default function LoginScreen() {
         password,
       });
 
-      if (response.success) {
+      if (response.success && response.token) {
+        await setSession(response.token, response.refreshToken);
         router.replace('/(main)');
         return;
       }

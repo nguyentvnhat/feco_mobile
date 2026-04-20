@@ -1,26 +1,19 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { authService } from '@/src/features/auth/auth.service';
+import { useAuth } from '@/src/features/auth';
 
 import { AccountScreenHeader } from '../components/AccountScreenHeader';
 
 export function AccountScreen() {
+  const { logout } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   async function handleLogout() {
-    setError('');
     setLoading(true);
     try {
-      const result = await authService.logout();
-      if (!result.success) {
-        setError(result.message);
-        return;
-      }
-      router.replace('/auth/login');
+      await logout();
     } finally {
       setLoading(false);
     }
@@ -40,7 +33,6 @@ export function AccountScreen() {
             <Text className="text-base font-semibold text-white">Đăng xuất</Text>
           )}
         </Pressable>
-        {error ? <Text className="mt-4 text-center text-sm text-red-600">{error}</Text> : null}
       </View>
     </SafeAreaView>
   );

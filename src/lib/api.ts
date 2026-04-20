@@ -1,12 +1,14 @@
+import axios, { isAxiosError, type AxiosError } from 'axios';
+
 import { getAccessToken, getRefreshToken } from './auth-token';
 import { env } from './env';
+import { clearAllSession } from './secure-session';
+import { ensureSessionReadyForRequest } from './session-hydration';
+import { notifySessionInvalidated } from './session-invalidated';
 
-type RequestConfig = {
-  method: 'GET' | 'POST';
-  path: string;
-  body?: unknown;
-  searchParams?: Record<string, string | number | boolean | undefined>;
-};
+const apiPrefix = '/api/v1';
+const baseUrl = env.apiBaseUrl.replace(/\/+$/, '');
+const normalizedBaseUrl = baseUrl.endsWith(apiPrefix) ? baseUrl : `${baseUrl}${apiPrefix}`;
 
 function extractErrorMessage(data: unknown) {
   if (!data || typeof data !== 'object') return '';
@@ -35,59 +37,75 @@ function extractErrorMessage(data: unknown) {
   return '';
 }
 
-function buildUrl(path: string, searchParams?: Record<string, string | number | boolean | undefined>) {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const baseUrl = env.apiBaseUrl.replace(/\/+$/, '');
-  const apiPrefix = '/api/v1';
-  const normalizedBaseUrl = baseUrl.endsWith(apiPrefix) ? baseUrl : `${baseUrl}${apiPrefix}`;
-  let url = `${normalizedBaseUrl}${normalizedPath}`;
-  if (searchParams) {
-    const entries = Object.entries(searchParams).filter(
-      ([, v]) => v !== undefined && v !== '',
-    ) as [string, string | number | boolean][];
-    if (entries.length > 0) {
-      const qs = new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
-      url += `?${qs}`;
-    }
-  }
-  return url;
+function toRequestError(error: AxiosError) {
+  const status = error.response?.status;
+  const data = error.response?.data;
+  const serverMessage = extractErrorMessage(data);
+  const fallbackMessage = status ? `Request failed (${status})` : 'Request failed';
+  return new Error(serverMessage || fallbackMessage);
 }
 
-async function request<T>({ method, path, body, searchParams }: RequestConfig): Promise<T> {
-  const url = buildUrl(path, searchParams);
+export const apiClient = axios.create({
+  baseURL: normalizedBaseUrl,
+  headers: {
+    Accept: 'application/json',
+  },
+  validateStatus: (status) => status >= 200 && status < 300,
+});
+
+apiClient.interceptors.request.use(async (config) => {
+  await ensureSessionReadyForRequest(config.url);
+
   const token = getAccessToken();
   const refresh = getRefreshToken();
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(refresh ? { 'X-Refresh-Token': refresh } : {}),
-  };
-  const serializedBody =
-    method === 'POST' ? JSON.stringify(body !== undefined ? body : {}) : undefined;
-  if (method === 'POST') {
-    headers['Content-Type'] = 'application/json';
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    delete config.headers.Authorization;
   }
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: serializedBody,
-  });
-
-  const data = (await response.json().catch(() => null)) as T | null;
-  if (!response.ok) {
-    const serverMessage = extractErrorMessage(data);
-    const fallbackMessage = `Request failed (${response.status})`;
-    throw new Error(serverMessage || fallbackMessage);
+  if (refresh) {
+    config.headers['X-Refresh-Token'] = refresh;
+  } else {
+    delete config.headers['X-Refresh-Token'];
   }
 
-  return (data ?? {}) as T;
-}
+  return config;
+});
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    if (error.response?.status === 401) {
+      const url = error.config?.url ?? '';
+      if (!url.includes('/auth/login')) {
+        await clearAllSession();
+        notifySessionInvalidated();
+      }
+    }
+    if (isAxiosError(error)) {
+      return Promise.reject(toRequestError(error));
+    }
+    return Promise.reject(error);
+  },
+);
 
 export const api = {
-  get<T>(path: string, searchParams?: Record<string, string | number | boolean | undefined>) {
-    return request<T>({ method: 'GET', path, searchParams });
+  async get<T>(path: string, searchParams?: Record<string, string | number | boolean | undefined>) {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const params =
+      searchParams &&
+      Object.fromEntries(
+        Object.entries(searchParams).filter(([, v]) => v !== undefined && v !== ''),
+      );
+    const response = await apiClient.get<T>(normalizedPath, {
+      params: params && Object.keys(params).length > 0 ? params : undefined,
+    });
+    return response.data;
   },
-  post<T>(path: string, body?: unknown) {
-    return request<T>({ method: 'POST', path, body });
+
+  async post<T>(path: string, body?: unknown) {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const response = await apiClient.post<T>(normalizedPath, body !== undefined ? body : {});
+    return response.data;
   },
 };

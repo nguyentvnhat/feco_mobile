@@ -8,6 +8,7 @@ export type LoginResponse = {
   message: string;
   /** Sanctum token when login succeeds */
   token?: string;
+  refreshToken?: string;
 };
 
 export type MeResponse = {
