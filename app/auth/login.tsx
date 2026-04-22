@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -62,7 +63,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-100">
+    <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1">
@@ -71,9 +72,11 @@ export default function LoginScreen() {
           className="flex-1"
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
           <View className="mx-auto w-full max-w-md px-6 py-10">
-            <Text className="text-center text-2xl font-semibold tracking-tight text-slate-900">
-              {t('auth.login.title')}
-            </Text>
+            <Image
+              source={require('@/assets/images/logo.png')}
+              contentFit="contain"
+              style={{ width: 180, height: 84, alignSelf: 'center', marginTop: 24 }}
+            />
             <Text className="mt-2 text-center text-sm text-slate-600">
               {t('auth.login.subtitle')}
             </Text>
@@ -139,10 +142,6 @@ export default function LoginScreen() {
               </Pressable>
               {formError ? <Text className="mt-3 text-sm text-red-600">{formError}</Text> : null}
             </View>
-
-            <Text className="mt-8 text-center text-xs text-slate-500">
-              {t('auth.login.internalOnly')}
-            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

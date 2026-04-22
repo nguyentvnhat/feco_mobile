@@ -1,21 +1,35 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ordersService } from '@/src/features/orders';
+import type { CommissionHistoryOrder, CommissionItem } from '@/src/features/orders';
 
-const rewards = [
-  { id: '1', title: 'Đơn hàng #DH-2938', date: 'Hôm nay, 14:30', amount: '+2.079.000 đ', status: 'Thành công', state: 'success' as const },
-  { id: '2', title: 'Thưởng KPI Tháng 5', date: '01/06/2024', amount: '+3.118.500 đ', status: 'Đã thanh toán', state: 'success' as const },
-  { id: '3', title: 'Đơn hàng #DH-2910', date: '31/05/2024', amount: '+4.158.000 đ', status: 'Đang chờ', state: 'pending' as const },
-  { id: '4', title: 'Đơn hàng #DH-2855', date: '30/05/2024', amount: '+2.079.000 đ', status: 'Thành công', state: 'success' as const },
-  { id: '5', title: 'Đơn hàng #DH-2812', date: '29/05/2024', amount: '+3.118.500 đ', status: 'Thành công', state: 'success' as const },
-  { id: '6', title: 'Đơn hàng #DH-2790', date: '28/05/2024', amount: '+4.158.000 đ', status: 'Thành công', state: 'success' as const },
-  { id: '7', title: 'Đơn hàng #DH-2755', date: '27/05/2024', amount: '+2.079.000 đ', status: 'Thành công', state: 'success' as const },
-  { id: '8', title: 'Đơn hàng #DH-2710', date: '26/05/2024', amount: '+3.118.500 đ', status: 'Thành công', state: 'success' as const },
-  { id: '9', title: 'Đơn hàng #DH-2699', date: '25/05/2024', amount: '+4.158.000 đ', status: 'Thành công', state: 'success' as const },
-  { id: '10', title: 'Đơn hàng #DH-2650', date: '24/05/2024', amount: '0 đ', status: 'Đã hủy', state: 'cancelled' as const },
-  { id: '11', title: 'Thưởng Nhóm Tuần 3', date: '23/05/2024', amount: '+2.079.000 đ', status: 'Đã thanh toán', state: 'success' as const },
-];
+type RewardRow = {
+  id: string;
+  title: string;
+  date: string;
+  amount: string;
+  status: string;
+  state: 'success' | 'pending' | 'cancelled';
+};
+
+function formatOrderDate(iso: string | null) {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '--';
+  const datePart = d.toLocaleDateString('vi-VN');
+  const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} ${timePart}`;
+}
+
+function normalizeState(status: string): RewardRow['state'] {
+  if (status === 'pending') return 'pending';
+  if (status === 'rejected') return 'cancelled';
+  return 'success';
+}
 
 function stateStyle(state: 'success' | 'pending' | 'cancelled') {
   if (state === 'pending') {
@@ -46,6 +60,60 @@ function stateStyle(state: 'success' | 'pending' | 'cancelled') {
 }
 
 export default function CommissionHistoryScreen() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [rows, setRows] = useState<RewardRow[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      async function loadHistory() {
+        setLoading(true);
+        setError('');
+        try {
+          const res = await ordersService.historyCommission();
+          if (cancelled) return;
+          if (!res.success) {
+            setError(res.message || 'Không tải được lịch sử hoa hồng.');
+            setRows([]);
+            return;
+          }
+
+          const mapped = (res.data?.orders ?? []).flatMap((order: CommissionHistoryOrder) => {
+            const code = order.order_no.startsWith('#') ? order.order_no : `#${order.order_no}`;
+            return (order.commissions ?? []).map((commission: CommissionItem) => ({
+              id: `${order.id}-${commission.id}`,
+              title: `Đơn hàng ${code}`,
+              date: formatOrderDate(order.order_date),
+              amount: `+${commission.amount} đ`,
+              status: commission.settlement_status_label_vi || commission.settlement_status,
+              state: normalizeState(commission.settlement_status),
+            }));
+          });
+
+          setRows(mapped);
+        } catch (e) {
+          if (!cancelled) {
+            setError(e instanceof Error ? e.message : 'Không tải được lịch sử hoa hồng.');
+            setRows([]);
+          }
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      }
+
+      void loadHistory();
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  const rewards = useMemo(() => rows, [rows]);
+
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top', 'bottom']}>
       <View className="flex-1">
@@ -59,36 +127,46 @@ export default function CommissionHistoryScreen() {
         </View>
 
         <ScrollView className="flex-1" contentContainerClassName="px-4 pb-6 pt-4">
-          <Text className="mb-3 text-xl font-semibold text-slate-900">Lịch sử nhận thưởng</Text>
+          <Text className="mb-3 text-base font-semibold text-slate-900">Lịch sử nhận thưởng</Text>
 
-          {rewards.map((item) => {
-            const style = stateStyle(item.state);
-            return (
-              <View key={item.id} className="mb-3 rounded-xl bg-white px-3 py-3 shadow-sm shadow-slate-900/5">
-                <View className="flex-row items-center">
-                  <View
-                    className="h-12 w-12 items-center justify-center rounded-full"
-                    style={{ backgroundColor: style.iconBg }}>
-                    <MaterialCommunityIcons name={style.icon} size={22} color={style.iconColor} />
-                  </View>
+          {loading ? (
+            <View className="items-center py-10">
+              <ActivityIndicator size="small" color="#22c55e" />
+            </View>
+          ) : error ? (
+            <Text className="text-center text-sm text-red-600">{error}</Text>
+          ) : rewards.length === 0 ? (
+            <Text className="text-center text-sm text-slate-500">Hiện chưa có lịch sử hoa hồng.</Text>
+          ) : (
+            rewards.map((item) => {
+              const style = stateStyle(item.state);
+              return (
+                <View key={item.id} className="mb-3 rounded-xl bg-white px-3 py-3 shadow-sm shadow-slate-900/5">
+                  <View className="flex-row items-center">
+                    <View
+                      className="h-12 w-12 items-center justify-center rounded-full"
+                      style={{ backgroundColor: style.iconBg }}>
+                      <MaterialCommunityIcons name={style.icon} size={22} color={style.iconColor} />
+                    </View>
 
-                  <View className="ml-3 flex-1">
-                    <Text className="text-base font-semibold text-slate-800">{item.title}</Text>
-                    <Text className="mt-0.5 text-sm text-slate-400">{item.date}</Text>
-                  </View>
+                    <View className="ml-3 flex-1">
+                      <Text className="text-base font-semibold text-slate-800">{item.title}</Text>
+                      <Text className="mt-0.5 text-sm text-slate-400">{item.date}</Text>
+                    </View>
 
-                  <View className="items-end">
-                    <Text className="text-2xl font-semibold tracking-tight" style={{ color: style.amountColor }}>
-                      {item.amount}
-                    </Text>
-                    <Text className="mt-0.5 text-sm font-medium" style={{ color: style.statusColor }}>
-                      {item.status}
-                    </Text>
+                    <View className="items-end">
+                      <Text className="text-base font-semibold" style={{ color: style.amountColor }}>
+                        {item.amount}
+                      </Text>
+                      <Text className="mt-0.5 text-sm font-medium" style={{ color: style.statusColor }}>
+                        {item.status}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>

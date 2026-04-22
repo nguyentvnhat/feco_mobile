@@ -1,7 +1,11 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ordersService } from '@/src/features/orders';
+import type { OrderDetailData, OrderDetailProduct } from '@/src/features/orders';
 
 const timeline = [
   { id: '1', title: 'Đang giao hàng', time: '25/10/2023 - 09:00', active: true },
@@ -9,19 +13,96 @@ const timeline = [
   { id: '3', title: 'Đơn hàng đã xác nhận', time: '24/10/2023 - 14:45', active: false },
 ];
 
-const products = [
-  { id: '1', name: 'Giảm khí thải ô tô', qty: 'x 1 thanh', amount: '4.158.000đ' },
-  { id: '2', name: 'Giảm khí thải xe máy', qty: 'x 1 thanh', amount: '1.782.000đ' },
-];
+function withCurrencySuffix(value?: string | null) {
+  if (!value) return '--';
+  const trimmed = value.trim();
+  return trimmed.endsWith('đ') ? trimmed : `${trimmed}đ`;
+}
 
 export default function OrderDetailScreen() {
+  const params = useLocalSearchParams<{ id?: string | string[]; source?: string | string[] }>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [order, setOrder] = useState<OrderDetailData | null>(null);
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function handleBack() {
+    if (source === 'home') {
+      router.replace('/(main)');
+      return;
+    }
+    if (source === 'orders') {
+      router.replace('/(main)/orders');
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(main)');
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDetail() {
+      const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
+      if (!orderId) {
+        setError('Thiếu mã đơn hàng.');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+      try {
+        const res = await ordersService.detail(orderId);
+        if (cancelled) return;
+        if (!res.success) {
+          setError(res.message || 'Không tải được chi tiết đơn hàng.');
+          setOrder(null);
+          return;
+        }
+        setOrder(res.data);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Không tải được chi tiết đơn hàng.');
+          setOrder(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
+
+  const products = useMemo<OrderDetailProduct[]>(() => order?.products ?? [], [order]);
+  const hasInvoiceFile = order?.has_invoice_file === true;
+  const hasDeliveryReceipt = order?.has_delivery_receipt_paths === true;
+  const displayOrderNo = useMemo(() => {
+    if (!order?.order_no) return '--';
+    return order.order_no.startsWith('#') ? order.order_no : `#${order.order_no}`;
+  }, [order?.order_no]);
+  const shippingAddress = useMemo(() => {
+    const addressParts = [order?.customer_address ?? '', order?.customer_ward ?? '', order?.customer_city ?? '']
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+    return addressParts.join(', ');
+  }, [order?.customer_address, order?.customer_ward, order?.customer_city]);
+
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top', 'bottom']}>
       <View className="flex-1">
         <View className="flex-row items-center border-b border-slate-200 bg-white px-3 py-3">
           <Pressable
             className="mr-2 h-10 w-10 items-center justify-center rounded-full active:bg-slate-100"
-            onPress={() => router.back()}>
+            onPress={handleBack}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#0f172a" />
           </Pressable>
           <Text className="text-2xl font-semibold tracking-tight text-slate-900">Chi Tiết Đơn Hàng</Text>
@@ -30,25 +111,47 @@ export default function OrderDetailScreen() {
         <ScrollView className="flex-1" contentContainerClassName="px-4 pb-24 pt-4">
           <View className="rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
             <Text className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mã đơn hàng</Text>
-            <Text className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">#ORD-20231024-001</Text>
+            <Text className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{displayOrderNo}</Text>
 
             <View className="mt-3 flex-row items-center justify-between">
-              <View className="rounded-full bg-green-50 px-3 py-1.5">
-                <Text className="text-sm font-semibold text-green-500">Đã xuất hóa đơn</Text>
+              <View
+                className="flex-row items-center rounded-full px-3 py-1.5"
+                style={{ backgroundColor: hasInvoiceFile ? '#ECFDF5' : '#F1F5F9' }}>
+                <MaterialCommunityIcons
+                  name={hasInvoiceFile ? 'check-circle-outline' : 'clock-outline'}
+                  size={15}
+                  color={hasInvoiceFile ? '#22C55E' : '#64748B'}
+                />
+                <Text className="ml-1 text-sm font-semibold" style={{ color: hasInvoiceFile ? '#22C55E' : '#64748B' }}>
+                  Hoá đơn
+                </Text>
               </View>
-              <View className="rounded-full bg-green-50 px-3 py-1.5">
-                <Text className="text-sm font-semibold text-green-500">Đang giao</Text>
+              <View
+                className="flex-row items-center rounded-full px-3 py-1.5"
+                style={{ backgroundColor: hasDeliveryReceipt ? '#ECFDF5' : '#F1F5F9' }}>
+                <MaterialCommunityIcons
+                  name={hasDeliveryReceipt ? 'check-circle-outline' : 'clock-outline'}
+                  size={15}
+                  color={hasDeliveryReceipt ? '#22C55E' : '#64748B'}
+                />
+                <Text
+                  className="ml-1 text-sm font-semibold"
+                  style={{ color: hasDeliveryReceipt ? '#22C55E' : '#64748B' }}>
+                  Biên nhận
+                </Text>
               </View>
             </View>
 
             <View className="mt-4 flex-row border-t border-slate-100 pt-3">
-              <View className="flex-1">
+              <View className="w-2/5 pr-2">
                 <Text className="text-sm text-slate-400">Ngày đặt</Text>
-                <Text className="text-base font-semibold text-slate-900">24/10/2023 14:30</Text>
+                <Text className="text-base font-semibold text-slate-900">
+                  {order?.order_date ? new Date(order.order_date).toLocaleString('vi-VN') : '--'}
+                </Text>
               </View>
-              <View className="flex-1">
-                <Text className="text-sm text-slate-400">Thanh toán</Text>
-                <Text className="text-base font-semibold text-slate-900">Chuyển khoản</Text>
+              <View className="flex-1 pl-2">
+                <Text className="text-sm text-slate-400">Trạng thái</Text>
+                <Text className="text-base font-semibold text-slate-900">{order?.order_label_status || '--'}</Text>
               </View>
             </View>
           </View>
@@ -87,41 +190,69 @@ export default function OrderDetailScreen() {
               <Ionicons name="location-outline" size={18} color="#22c55e" />
               <Text className="ml-2 text-xl font-semibold text-slate-900">THÔNG TIN GIAO HÀNG</Text>
             </View>
-            <Text className="text-base font-semibold text-slate-900">Garage Ô tô Minh Sang - Trung tâm Chăm sóc Xe</Text>
-            <Text className="mt-1 text-base font-semibold text-slate-400">0901 234 567</Text>
-            <Text className="mt-1 text-base font-semibold text-slate-400">123 Đường Lê Lợi, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh</Text>
+            <Text className="text-base font-semibold text-slate-900">{order?.customer_name || '--'}</Text>
+            <Text className="mt-1 text-base font-semibold text-slate-400">{order?.customer_phone || '--'}</Text>
+            <Text className="mt-1 text-base font-semibold text-slate-400">{shippingAddress}</Text>
           </View>
 
           <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
             <Text className="text-xl font-semibold text-slate-900">DANH SÁCH SẢN PHẨM</Text>
             <View className="mt-3">
-              {products.map((item) => (
-                <View key={item.id} className="mb-3 flex-row items-center rounded-xl bg-slate-50 px-3 py-3">
-                  <View className="h-12 w-12 items-center justify-center rounded-md bg-white">
-                    <MaterialCommunityIcons name="package-variant-closed" size={24} color="#1e293b" />
-                  </View>
-                  <View className="ml-3 flex-1">
-                    <Text className="text-base font-semibold text-slate-800">{item.name}</Text>
-                    <Text className="text-sm text-slate-400">{item.qty}</Text>
-                  </View>
-                  <Text className="text-2xl font-semibold tracking-tight text-slate-900">{item.amount}</Text>
+              {loading ? (
+                <View className="items-center py-6">
+                  <ActivityIndicator size="small" color="#22c55e" />
                 </View>
-              ))}
+              ) : error ? (
+                <Text className="text-sm text-red-600">{error}</Text>
+              ) : products.length === 0 ? (
+                <Text className="text-sm text-slate-500">Không có sản phẩm.</Text>
+              ) : (
+                products.map((item) => (
+                  <View key={item.id} className="mb-3 flex-row items-center rounded-xl bg-slate-50 px-3 py-3">
+                    <View className="h-12 w-12 items-center justify-center rounded-md bg-white">
+                      {item.image_path ? (
+                        <Image
+                          source={{ uri: item.image_path }}
+                          contentFit="cover"
+                          style={{ width: 48, height: 48, borderRadius: 8 }}
+                        />
+                      ) : (
+                        <MaterialCommunityIcons name="package-variant-closed" size={24} color="#1e293b" />
+                      )}
+                    </View>
+                    <View className="ml-3 flex-1">
+                      <Text className="text-base font-semibold text-slate-800">{item.product_name}</Text>
+                      <Text className="text-sm text-slate-400">
+                        x {item.quantity} {item.unit || ''}
+                      </Text>
+                    </View>
+                    <Text className="text-2xl font-semibold tracking-tight text-slate-900">
+                      {withCurrencySuffix(item.line_amount)}
+                    </Text>
+                  </View>
+                ))
+              )}
             </View>
           </View>
 
           <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
             <View className="flex-row items-center justify-between">
               <Text className="text-base text-slate-400">Tổng tiền hàng</Text>
-              <Text className="text-2xl font-semibold tracking-tight text-slate-900">5.940.000đ</Text>
+              <Text className="text-2xl font-semibold tracking-tight text-slate-900">
+                {withCurrencySuffix(order?.subtotal_amount)}
+              </Text>
             </View>
             <View className="mt-1 flex-row items-center justify-between">
               <Text className="text-base text-green-500">Chiết khấu</Text>
-              <Text className="text-2xl font-semibold tracking-tight text-green-500">-100.000đ</Text>
+              <Text className="text-2xl font-semibold tracking-tight text-green-500">
+                {order?.discount_amount ? `-${withCurrencySuffix(order.discount_amount)}` : '--'}
+              </Text>
             </View>
             <View className="mt-3 flex-row items-center justify-between border-t border-slate-100 pt-3">
               <Text className="text-xl font-semibold text-slate-900">Tổng thanh toán</Text>
-              <Text className="text-3xl font-bold text-green-500">5.840.000đ</Text>
+              <Text className="text-3xl font-bold text-green-500">
+                {withCurrencySuffix(order?.net_amount)}
+              </Text>
             </View>
           </View>
         </ScrollView>

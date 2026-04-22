@@ -24,9 +24,12 @@ export default function TabLayout() {
           borderTopWidth: 1,
           borderTopColor: '#E2E8F0',
           backgroundColor: '#FFFFFF',
+          paddingTop: 8,
+          paddingBottom: 8,
+          height: 68,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
         },
       }}>
@@ -34,15 +37,15 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Trang chủ',
-          tabBarIcon: ({ color, size }) => <Feather name="home" size={size ?? 24} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="home" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
           title: 'Đơn hàng',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="inventory-2" size={size ?? 24} color={color} />
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="inventory-2" size={20} color={color} />
           ),
         }}
       />
@@ -50,8 +53,8 @@ export default function TabLayout() {
         name="agents"
         options={{
           title: 'Đại lý',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size ?? 24} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="people-outline" size={20} color={color} />
           ),
         }}
       />
@@ -59,8 +62,8 @@ export default function TabLayout() {
         name="account"
         options={{
           title: 'Tài khoản',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle-outline" size={size ?? 24} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="person-circle-outline" size={20} color={color} />
           ),
         }}
       />
@@ -83,6 +86,13 @@ export default function TabLayout() {
         options={{
           href: null,
           title: 'Hoa hồng của tôi',
+        }}
+      />
+      <Tabs.Screen
+        name="business-info"
+        options={{
+          href: null,
+          title: 'Thông tin doanh nghiệp',
         }}
       />
     </Tabs>

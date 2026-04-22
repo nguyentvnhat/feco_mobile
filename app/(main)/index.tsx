@@ -107,6 +107,18 @@ export default function HomeScreen() {
                     onPress={() => {
                       if (item.id === 'create-order') {
                         router.push('/(main)/create-order');
+                        return;
+                      }
+                      if (item.id === 'orders') {
+                        router.push('/(main)/orders');
+                        return;
+                      }
+                      if (item.id === 'commission') {
+                        router.push('/(main)/commission-history');
+                        return;
+                      }
+                      if (item.id === 'account') {
+                        router.push('/(main)/account');
                       }
                     }}>
                     <View
@@ -146,7 +158,12 @@ export default function HomeScreen() {
                     <Pressable
                       key={order.id}
                       className="rounded-xl bg-white p-4 shadow-sm active:opacity-90"
-                      onPress={() => router.push('/(main)/order-detail')}>
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(main)/order-detail',
+                          params: { id: order.id, source: 'home' },
+                        })
+                      }>
                       <View className="flex-row items-start justify-between">
                         <View className="mr-3 flex-1">
                           <Text className="text-base font-semibold text-slate-900">{order.code}</Text>

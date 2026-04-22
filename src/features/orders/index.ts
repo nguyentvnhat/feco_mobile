@@ -1,7 +1,18 @@
 export { ordersService } from './orders.service';
 export { mapOrderToRecentRow } from './orderDisplay';
 export { getOrderStatusPresentation } from './orderStatus';
-export type { OrderListItem, ListOrdersApiResponse } from './orders.types';
+export type {
+  OrderListItem,
+  ListOrdersApiResponse,
+  OrderStatusesApiResponse,
+  OrderStatusItem,
+  CommissionHistoryApiResponse,
+  CommissionHistoryOrder,
+  CommissionItem,
+  OrderDetailApiResponse,
+  OrderDetailData,
+  OrderDetailProduct,
+} from './orders.types';
 export type { RecentOrderRow } from './orderDisplay';
 export type { OrderStatusPresentation } from './orderStatus';
 export type {

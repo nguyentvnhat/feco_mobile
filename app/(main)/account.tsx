@@ -7,7 +7,7 @@ import { authService } from '@/src/features/auth/auth.service';
 
 const menuItems = [
   { key: 'commission-history', label: 'Lịch sử hoa hồng' },
-  { key: 'app-settings', label: 'Cài đặt ứng dụng' },
+  { key: 'business-info', label: 'Thông tin doanh nghiệp' },
   { key: 'commission-policy', label: 'Chính sách hoa hồng' },
 ];
 
@@ -116,7 +116,7 @@ export default function AccountRoute() {
               <Ionicons name="location-outline" size={20} color="#22c55e" />
             </View>
             <View className="ml-3 flex-1">
-              <Text className="text-sm text-slate-400">Địa chỉ kho</Text>
+              <Text className="text-sm text-slate-400">Địa chỉ</Text>
               <Text className="text-base font-semibold text-slate-800">{address}</Text>
             </View>
           </View>
@@ -132,6 +132,10 @@ export default function AccountRoute() {
               onPress={() => {
                 if (item.key === 'commission-history') {
                   router.push('/(main)/commission-history');
+                  return;
+                }
+                if (item.key === 'business-info') {
+                  router.push('/(main)/business-info');
                 }
               }}>
               <Text className="text-base font-semibold text-slate-800">{item.label}</Text>

@@ -1,16 +1,24 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getOrderStatusPresentation, ordersService } from '@/src/features/orders';
-import type { OrderListItem } from '@/src/features/orders';
+import type { OrderListItem, OrderStatusItem } from '@/src/features/orders';
 
 type StatusTab = {
   key: string;
   label: string;
 };
+
+function localizeUnit(unit?: string | null) {
+  const normalized = (unit || '').trim().toLowerCase();
+  if (normalized === 'box') return 'hộp';
+  if (normalized === 'bar') return 'thanh';
+  return unit || '';
+}
 
 export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
@@ -18,35 +26,42 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [tabs, setTabs] = useState<StatusTab[]>([{ key: 'all', label: 'Tất cả' }]);
   const [activeTab, setActiveTab] = useState('all');
+  const [navigatingOrderId, setNavigatingOrderId] = useState<number | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      setActiveTab('all');
+      setNavigatingOrderId(null);
+    }, []),
+  );
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
 
       async function loadOrders() {
-        setActiveTab('all');
         setLoading(true);
         setError('');
         try {
-          const res = await ordersService.listMine();
+          const [ordersRes, statusesRes] = await Promise.all([
+            ordersService.listMine(),
+            ordersService.statuses(),
+          ]);
           if (cancelled) return;
-          if (!res.success) {
-            setError(res.message || 'Không tải được đơn hàng.');
+          if (!ordersRes.success) {
+            setError(ordersRes.message || 'Không tải được đơn hàng.');
             setOrders([]);
             setTabs([{ key: 'all', label: 'Tất cả' }]);
             return;
           }
 
-          const rows = res.data?.orders ?? [];
+          const rows = ordersRes.data?.orders ?? [];
           setOrders(rows);
-
-          const uniq = new Map<string, string>();
-          rows.forEach((o) => {
-            if (!uniq.has(o.order_status)) {
-              uniq.set(o.order_status, o.order_label_status || o.order_status);
-            }
-          });
-          setTabs([{ key: 'all', label: 'Tất cả' }, ...Array.from(uniq, ([key, label]) => ({ key, label }))]);
+          const statusTabs: StatusTab[] =
+            statusesRes.success && Array.isArray(statusesRes.data?.statuses)
+              ? statusesRes.data.statuses.map((s: OrderStatusItem) => ({ key: s.value, label: s.label }))
+              : [];
+          setTabs([{ key: 'all', label: 'Tất cả' }, ...statusTabs]);
         } catch (e) {
           if (!cancelled) {
             setError(e instanceof Error ? e.message : 'Không tải được đơn hàng.');
@@ -110,7 +125,10 @@ export default function OrdersScreen() {
           ) : error ? (
             <Text className="text-center text-sm text-red-600">{error}</Text>
           ) : filteredOrders.length === 0 ? (
-            <Text className="text-center text-sm text-slate-500">Không có đơn hàng.</Text>
+            <View className="items-center py-16">
+              <MaterialCommunityIcons name="inbox-outline" size={56} color="#94a3b8" />
+              <Text className="mt-3 text-center text-sm font-medium text-slate-500">Hiện không có đơn hàng nào</Text>
+            </View>
           ) : (
             filteredOrders.map((order) => {
               const status = getOrderStatusPresentation(order.order_status, order.order_label_status);
@@ -118,11 +136,20 @@ export default function OrdersScreen() {
               const hasDeliveryReceipt = order.has_delivery_receipt_paths === true;
               const code = order.order_no.startsWith('#') ? order.order_no : `#${order.order_no}`;
               const customer = order.customer?.customer_name || 'Khách hàng';
+              const firstProduct = order.products?.[0];
+              const isNavigating = navigatingOrderId === order.id;
               return (
                 <Pressable
                   key={order.id}
-                  className="mb-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5 active:opacity-95"
-                  onPress={() => router.push('/(main)/order-detail')}>
+                  className="relative mb-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5 active:opacity-95"
+                  disabled={isNavigating}
+                  onPress={() => {
+                    setNavigatingOrderId(order.id);
+                    router.push({
+                      pathname: '/(main)/order-detail',
+                      params: { id: String(order.id), source: 'orders' },
+                    });
+                  }}>
                   <View className="flex-row items-start justify-between">
                     <View className="flex-1 pr-3">
                       <Text className="text-sm font-semibold tracking-wide text-slate-400">{code}</Text>
@@ -143,12 +170,26 @@ export default function OrdersScreen() {
 
                   <View className="mt-4 flex-row items-center rounded-xl bg-slate-50 px-3 py-3">
                     <View className="h-12 w-12 items-center justify-center rounded-md bg-white">
-                      <MaterialCommunityIcons name="package-variant-closed" size={24} color="#1e293b" />
+                      {firstProduct?.image_path ? (
+                        <Image
+                          source={{ uri: firstProduct.image_path }}
+                          contentFit="cover"
+                          style={{ width: 48, height: 48, borderRadius: 8 }}
+                        />
+                      ) : (
+                        <MaterialCommunityIcons name="package-variant-closed" size={24} color="#1e293b" />
+                      )}
                     </View>
                     <View className="ml-3 flex-1">
-                      <Text className="text-base font-semibold text-slate-700">Đơn hàng {code}</Text>
+                      <Text className="text-base font-semibold text-slate-700">
+                        {firstProduct?.product_name || `Đơn hàng ${code}`}
+                      </Text>
                       <Text className="mt-0.5 text-sm text-slate-400">
-                        {order.order_date ? new Date(order.order_date).toLocaleDateString('vi-VN') : '--'}
+                        {firstProduct
+                          ? `x ${firstProduct.quantity} ${localizeUnit(firstProduct.unit)}`.trim()
+                          : order.order_date
+                            ? new Date(order.order_date).toLocaleDateString('vi-VN')
+                            : '--'}
                       </Text>
                     </View>
                   </View>
@@ -189,6 +230,11 @@ export default function OrdersScreen() {
                       </View>
                     </View>
                   </View>
+                  {isNavigating ? (
+                    <View className="absolute inset-0 items-center justify-center rounded-2xl bg-white/60">
+                      <ActivityIndicator size="small" color="#22c55e" />
+                    </View>
+                  ) : null}
                 </Pressable>
               );
             })
