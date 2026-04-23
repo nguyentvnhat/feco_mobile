@@ -41,8 +41,11 @@ export default function CreateOrderScreen() {
 
   const [selectedProduct, setSelectedProduct] = useState<CreateMetadataProduct | null>(null);
   const [quantity, setQuantity] = useState('1');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [ordererName, setOrdererName] = useState('');
+  const [ordererPhone, setOrdererPhone] = useState('');
+  const [isSameRecipient, setIsSameRecipient] = useState(true);
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
   const [provinceCode, setProvinceCode] = useState('');
   const [provinceLabel, setProvinceLabel] = useState('');
   const [wardCode, setWardCode] = useState('');
@@ -68,8 +71,11 @@ export default function CreateOrderScreen() {
   function resetForm() {
     setSelectedProduct(null);
     setQuantity('1');
-    setCustomerName('');
-    setCustomerPhone('');
+    setOrdererName('');
+    setOrdererPhone('');
+    setIsSameRecipient(true);
+    setRecipientName('');
+    setRecipientPhone('');
     setProvinceCode('');
     setProvinceLabel('');
     setWardCode('');
@@ -140,13 +146,31 @@ export default function CreateOrderScreen() {
       setFormError('Vui lòng chọn sản phẩm.');
       return;
     }
-    if (!customerName.trim()) {
-      setFormError('Vui lòng nhập tên người nhận / đại lý.');
+    if (!ordererName.trim()) {
+      setFormError('Vui lòng nhập tên người đặt.');
       return;
     }
-    if (!customerPhone.trim()) {
+    if (ordererName.trim().length < 3) {
+      setFormError('Tên người đặt phải có ít nhất 3 ký tự.');
+      return;
+    }
+    if (!ordererPhone.trim()) {
       setFormError('Vui lòng nhập số điện thoại.');
       return;
+    }
+    if (!isSameRecipient) {
+      if (!recipientName.trim()) {
+        setFormError('Vui lòng nhập tên người nhận.');
+        return;
+      }
+      if (recipientName.trim().length < 3) {
+        setFormError('Tên người nhận phải có ít nhất 3 ký tự.');
+        return;
+      }
+      if (!recipientPhone.trim()) {
+        setFormError('Vui lòng nhập số điện thoại người nhận.');
+        return;
+      }
     }
     if (!provinceCode) {
       setFormError('Vui lòng chọn tỉnh / thành phố.');
@@ -163,13 +187,15 @@ export default function CreateOrderScreen() {
 
     setSubmitting(true);
     try {
+      const shippingName = isSameRecipient ? ordererName.trim() : recipientName.trim();
+      const shippingPhone = isSameRecipient ? ordererPhone.trim() : recipientPhone.trim();
       const res = await ordersService.createOrder({
         order_date: orderDate.trim(),
         seller_user_id: sellerUserId,
         order_channel: 'direct_sale',
         order_status: 'new',
-        customer_name: customerName.trim(),
-        customer_phone: customerPhone.trim(),
+        customer_name: shippingName,
+        customer_phone: shippingPhone,
         customer_address: address.trim() || null,
         customer_province_code: provinceCode,
         customer_ward_code: wardCode,
@@ -288,13 +314,13 @@ export default function CreateOrderScreen() {
                     <Text className="ml-2 text-base font-semibold text-green-600">Thông tin giao hàng</Text>
                   </View>
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Tên người nhận / Đại lý</Text>
+                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Tên người đặt</Text>
                   <TextInput
                     className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
-                    placeholder="Nhập tên đại lý nhận hàng"
+                    placeholder="Nhập tên người đặt"
                     placeholderTextColor="#94a3b8"
-                    value={customerName}
-                    onChangeText={setCustomerName}
+                    value={ordererName}
+                    onChangeText={setOrdererName}
                   />
 
                   <Text className="mb-1.5 text-xs font-medium text-slate-600">Số điện thoại</Text>
@@ -302,10 +328,48 @@ export default function CreateOrderScreen() {
                     className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
                     placeholder="0900000000"
                     placeholderTextColor="#94a3b8"
-                    value={customerPhone}
-                    onChangeText={setCustomerPhone}
+                    value={ordererPhone}
+                    onChangeText={setOrdererPhone}
                     keyboardType="phone-pad"
                   />
+
+                  <Pressable
+                    className="mb-4 flex-row items-center"
+                    onPress={() => setIsSameRecipient((prev) => !prev)}>
+                    <MaterialCommunityIcons
+                      name={isSameRecipient ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      size={22}
+                      color={isSameRecipient ? '#16a34a' : '#64748b'}
+                    />
+                    <Text className="ml-2 text-sm text-slate-700">
+                      Thông tin người đặt hàng và người nhận hàng giống nhau
+                    </Text>
+                  </Pressable>
+
+                  {!isSameRecipient ? (
+                    <>
+                      <Text className="mb-1.5 text-xs font-medium text-slate-600">Tên người nhận</Text>
+                      <TextInput
+                        className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
+                        placeholder="Nhập tên người nhận hàng"
+                        placeholderTextColor="#94a3b8"
+                        value={recipientName}
+                        onChangeText={setRecipientName}
+                      />
+
+                      <Text className="mb-1.5 text-xs font-medium text-slate-600">
+                        Số điện thoại người nhận
+                      </Text>
+                      <TextInput
+                        className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
+                        placeholder="0900000000"
+                        placeholderTextColor="#94a3b8"
+                        value={recipientPhone}
+                        onChangeText={setRecipientPhone}
+                        keyboardType="phone-pad"
+                      />
+                    </>
+                  ) : null}
 
                   <Text className="mb-2 text-sm font-semibold text-slate-800">Địa chỉ nhận hàng</Text>
 

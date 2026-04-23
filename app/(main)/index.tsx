@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { authService } from '@/src/features/auth/auth.service';
 import { mapOrderToRecentRow, ordersService } from '@/src/features/orders';
 import type { RecentOrderRow } from '@/src/features/orders';
 import { Spacings } from '@/src/theme';
@@ -22,6 +23,7 @@ export default function HomeScreen() {
   const [recentOrders, setRecentOrders] = useState<RecentOrderRow[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState('');
+  const [agentName, setAgentName] = useState('FECO X3');
 
   useFocusEffect(
     useCallback(() => {
@@ -31,19 +33,31 @@ export default function HomeScreen() {
         setOrdersLoading(true);
         setOrdersError('');
         try {
-          const res = await ordersService.listMine({ limit: ORDERS_LIMIT });
+          const [ordersRes, meRes] = await Promise.all([
+            ordersService.listMine({ limit: ORDERS_LIMIT }),
+            authService.me(),
+          ]);
           if (cancelled) return;
-          if (!res.success) {
-            setOrdersError(res.message || 'Không tải được đơn hàng.');
+          if (meRes.success) {
+            const rawName = meRes.data?.agent?.name;
+            const normalizedName = typeof rawName === 'string' ? rawName.trim() : '';
+            setAgentName(normalizedName || 'FECO X3');
+          } else {
+            setAgentName('FECO X3');
+          }
+
+          if (!ordersRes.success) {
+            setOrdersError(ordersRes.message || 'Không tải được đơn hàng.');
             setRecentOrders([]);
             return;
           }
-          const rows = (res.data?.orders ?? []).map(mapOrderToRecentRow);
+          const rows = (ordersRes.data?.orders ?? []).map(mapOrderToRecentRow);
           setRecentOrders(rows);
         } catch (e) {
           if (!cancelled) {
             setOrdersError(e instanceof Error ? e.message : 'Không tải được đơn hàng.');
             setRecentOrders([]);
+            setAgentName('FECO X3');
           }
         } finally {
           if (!cancelled) {
@@ -72,7 +86,7 @@ export default function HomeScreen() {
               </View>
               <View className="ml-3">
                 <Text className="text-sm text-slate-500">Xin chào,</Text>
-                <Text className="text-2xl font-semibold tracking-tight text-slate-900">Nguyễn Văn A</Text>
+                <Text className="text-2xl font-semibold tracking-tight text-slate-900">{agentName}</Text>
               </View>
             </View>
 
