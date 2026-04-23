@@ -27,6 +27,11 @@ export type MeResponse = {
       business_name?: string | null;
       name?: string | null;
       full_address?: string | null;
+      agent_commission_policy?: Array<{
+        id: number;
+        policy_name?: string | null;
+        description?: string | null;
+      }>;
     } | null;
   };
 };

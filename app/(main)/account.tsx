@@ -131,11 +131,18 @@ export default function AccountRoute() {
               }`}
               onPress={() => {
                 if (item.key === 'commission-history') {
-                  router.push('/(main)/commission-history');
+                  router.push({
+                    pathname: '/(main)/commission-history',
+                    params: { source: 'account' },
+                  });
                   return;
                 }
                 if (item.key === 'business-info') {
                   router.push('/(main)/business-info');
+                  return;
+                }
+                if (item.key === 'commission-policy') {
+                  router.push('/(main)/commission-policy');
                 }
               }}>
               <Text className="text-base font-semibold text-slate-800">{item.label}</Text>

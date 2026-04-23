@@ -95,6 +95,13 @@ export default function TabLayout() {
           title: 'Thông tin doanh nghiệp',
         }}
       />
+      <Tabs.Screen
+        name="commission-policy"
+        options={{
+          href: null,
+          title: 'Chính sách hoa hồng',
+        }}
+      />
     </Tabs>
   );
 }

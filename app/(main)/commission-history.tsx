@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -60,9 +60,27 @@ function stateStyle(state: 'success' | 'pending' | 'cancelled') {
 }
 
 export default function CommissionHistoryScreen() {
+  const params = useLocalSearchParams<{ source?: string | string[] }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rows, setRows] = useState<RewardRow[]>([]);
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function handleBack() {
+    if (source === 'home') {
+      router.replace('/(main)');
+      return;
+    }
+    if (source === 'account') {
+      router.replace('/(main)/account');
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(main)/account');
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -120,7 +138,7 @@ export default function CommissionHistoryScreen() {
         <View className="flex-row items-center border-b border-slate-200 bg-white px-3 py-3">
           <Pressable
             className="mr-2 h-10 w-10 items-center justify-center rounded-full active:bg-slate-100"
-            onPress={() => router.back()}>
+            onPress={handleBack}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#0f172a" />
           </Pressable>
           <Text className="text-2xl font-semibold tracking-tight text-slate-900">Hoa hồng của tôi</Text>

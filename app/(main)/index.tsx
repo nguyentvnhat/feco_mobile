@@ -128,7 +128,10 @@ export default function HomeScreen() {
                         return;
                       }
                       if (item.id === 'commission') {
-                        router.push('/(main)/commission-history');
+                        router.push({
+                          pathname: '/(main)/commission-history',
+                          params: { source: 'home' },
+                        });
                         return;
                       }
                       if (item.id === 'account') {
