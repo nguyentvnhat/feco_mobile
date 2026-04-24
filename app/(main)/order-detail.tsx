@@ -1,17 +1,11 @@
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ordersService } from '@/src/features/orders';
-import type { OrderDetailData, OrderDetailProduct } from '@/src/features/orders';
-
-const timeline = [
-  { id: '1', title: 'Đang giao hàng', time: '25/10/2023 - 09:00', active: true },
-  { id: '2', title: 'Đã xuất kho', time: '24/10/2023 - 17:00', active: false },
-  { id: '3', title: 'Đơn hàng đã xác nhận', time: '24/10/2023 - 14:45', active: false },
-];
+import type { OrderDetailData, OrderDetailProduct, OrderStatusItem } from '@/src/features/orders';
 
 function withCurrencySuffix(value?: string | null) {
   if (!value) return '--';
@@ -19,11 +13,21 @@ function withCurrencySuffix(value?: string | null) {
   return trimmed.endsWith('đ') ? trimmed : `${trimmed}đ`;
 }
 
+function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const datePart = d.toLocaleDateString('vi-VN');
+  const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} ${timePart}`;
+}
+
 export default function OrderDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[]; source?: string | string[] }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderDetailData | null>(null);
+  const [statusSteps, setStatusSteps] = useState<OrderStatusItem[]>([]);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
 
   function handleBack() {
@@ -56,18 +60,27 @@ export default function OrderDetailScreen() {
       setLoading(true);
       setError('');
       try {
-        const res = await ordersService.detail(orderId);
+        const [detailRes, statusesRes] = await Promise.all([
+          ordersService.detail(orderId),
+          ordersService.statuses(),
+        ]);
         if (cancelled) return;
-        if (!res.success) {
-          setError(res.message || 'Không tải được chi tiết đơn hàng.');
+        if (!detailRes.success) {
+          setError(detailRes.message || 'Không tải được chi tiết đơn hàng.');
           setOrder(null);
           return;
         }
-        setOrder(res.data);
+        setOrder(detailRes.data);
+        if (statusesRes.success) {
+          setStatusSteps(statusesRes.data?.statuses ?? []);
+        } else {
+          setStatusSteps([]);
+        }
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Không tải được chi tiết đơn hàng.');
           setOrder(null);
+          setStatusSteps([]);
         }
       } finally {
         if (!cancelled) {
@@ -95,6 +108,28 @@ export default function OrderDetailScreen() {
       .filter((part) => part.length > 0);
     return addressParts.join(', ');
   }, [order?.customer_address, order?.customer_ward, order?.customer_city]);
+  const timelineItems = useMemo(() => {
+    const currentStatus = (order?.order_status || '').trim();
+    const currentIndex = statusSteps.findIndex((s) => s.value === currentStatus);
+    const displayTime = formatDateTime(order?.order_date);
+    return statusSteps
+      .map((step, idx) => {
+      const active = currentIndex >= 0 ? idx <= currentIndex : step.value === currentStatus;
+      return {
+        id: step.value,
+        title: step.label,
+        time: active ? displayTime : '',
+        active,
+      };
+      })
+      .filter((step) => step.active);
+  }, [order?.order_status, order?.order_date, statusSteps]);
+  const hasDiscount = useMemo(() => {
+    const raw = (order?.discount_amount ?? '').replace(/\./g, '').replace(',', '.').trim();
+    if (!raw) return false;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0;
+  }, [order?.discount_amount]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top', 'bottom']}>
@@ -157,9 +192,9 @@ export default function OrderDetailScreen() {
           </View>
 
           <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
-            <Text className="text-xl font-semibold text-slate-900">TRẠNG THÁI VẬN CHUYỂN</Text>
+            <Text className="text-xl font-semibold text-slate-900">TRẠNG THÁI ĐƠN HÀNG</Text>
             <View className="mt-3">
-              {timeline.map((step, idx) => (
+              {timelineItems.map((step, idx) => (
                 <View key={step.id} className="flex-row">
                   <View className="mr-3 items-center">
                     <View
@@ -172,13 +207,15 @@ export default function OrderDetailScreen() {
                         color={step.active ? '#fff' : '#94a3b8'}
                       />
                     </View>
-                    {idx < timeline.length - 1 ? <View className="h-9 w-0.5 bg-slate-200" /> : null}
+                    {idx < timelineItems.length - 1 ? <View className="h-9 w-0.5 bg-slate-200" /> : null}
                   </View>
                   <View className="pb-3">
                     <Text className={`text-base font-semibold ${step.active ? 'text-slate-900' : 'text-slate-300'}`}>
                       {step.title}
                     </Text>
-                    <Text className={`text-sm ${step.active ? 'text-slate-500' : 'text-slate-300'}`}>{step.time}</Text>
+                    {step.time ? (
+                      <Text className={`text-sm ${step.active ? 'text-slate-500' : 'text-slate-300'}`}>{step.time}</Text>
+                    ) : null}
                   </View>
                 </View>
               ))}
@@ -242,12 +279,14 @@ export default function OrderDetailScreen() {
                 {withCurrencySuffix(order?.subtotal_amount)}
               </Text>
             </View>
-            <View className="mt-1 flex-row items-center justify-between">
-              <Text className="text-base text-green-500">Chiết khấu</Text>
-              <Text className="text-2xl font-semibold tracking-tight text-green-500">
-                {order?.discount_amount ? `-${withCurrencySuffix(order.discount_amount)}` : '--'}
-              </Text>
-            </View>
+            {hasDiscount ? (
+              <View className="mt-1 flex-row items-center justify-between">
+                <Text className="text-base text-green-500">Chiết khấu</Text>
+                <Text className="text-2xl font-semibold tracking-tight text-green-500">
+                  -{withCurrencySuffix(order?.discount_amount)}
+                </Text>
+              </View>
+            ) : null}
             <View className="mt-3 flex-row items-center justify-between border-t border-slate-100 pt-3">
               <Text className="text-xl font-semibold text-slate-900">Tổng thanh toán</Text>
               <Text className="text-3xl font-bold text-green-500">
@@ -257,7 +296,7 @@ export default function OrderDetailScreen() {
           </View>
         </ScrollView>
 
-        <View className="border-t border-slate-200 bg-white px-4 py-3">
+        {/* <View className="border-t border-slate-200 bg-white px-4 py-3">
           <View className="flex-row gap-3">
             <Pressable className="flex-1 items-center justify-center rounded-xl border border-slate-200 py-3.5 active:bg-slate-50">
               <Text className="text-base font-semibold text-slate-700">Liên Hệ Hỗ Trợ</Text>
@@ -267,7 +306,7 @@ export default function OrderDetailScreen() {
               <Text className="ml-2 text-base font-semibold text-white">Xem hóa đơn</Text>
             </Pressable>
           </View>
-        </View>
+        </View> */}
       </View>
     </SafeAreaView>
   );

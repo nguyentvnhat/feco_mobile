@@ -18,6 +18,17 @@ function formatOrderDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('vi-VN');
 }
 
+function appendCurrency(value: string | null | undefined, currency: string | null | undefined): string {
+  const text = (value ?? '').trim();
+  if (!text) return '--';
+  if (/[đ₫]$/i.test(text)) return text;
+
+  const cur = (currency ?? '').trim();
+  if (!cur) return `${text} đ`;
+
+  return `${text} ${cur}`;
+}
+
 export function mapOrderToRecentRow(order: OrderListItem): RecentOrderRow {
   const name = order.customer?.customer_name?.trim() || '—';
   const date = formatOrderDate(order.order_date);
@@ -28,7 +39,7 @@ export function mapOrderToRecentRow(order: OrderListItem): RecentOrderRow {
     id: String(order.id),
     code,
     subtitle: date ? `${name} • ${date}` : name,
-    amount: order.net_amount,
+    amount: appendCurrency(order.net_amount, order.currency),
     status: status.label,
     statusColor: status.textColor,
     statusBg: status.bgColor,

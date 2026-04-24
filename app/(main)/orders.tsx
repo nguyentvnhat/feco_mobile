@@ -1,9 +1,18 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getOrderStatusPresentation, ordersService } from '@/src/features/orders';
 import type { OrderListItem, OrderStatusItem } from '@/src/features/orders';
@@ -13,6 +22,8 @@ type StatusTab = {
   label: string;
 };
 
+const PAGE_SIZE = 5;
+
 function localizeUnit(unit?: string | null) {
   const normalized = (unit || '').trim().toLowerCase();
   if (normalized === 'box') return 'hộp';
@@ -21,82 +32,116 @@ function localizeUnit(unit?: string | null) {
 }
 
 export default function OrdersScreen() {
+  const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [tabs, setTabs] = useState<StatusTab[]>([{ key: 'all', label: 'Tất cả' }]);
   const [activeTab, setActiveTab] = useState('all');
   const [navigatingOrderId, setNavigatingOrderId] = useState<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useFocusEffect(
     useCallback(() => {
       setActiveTab('all');
       setNavigatingOrderId(null);
+      setVisibleCount(PAGE_SIZE);
     }, []),
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchText.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
-      async function loadOrders() {
-        setLoading(true);
-        setError('');
-        try {
-          const [ordersRes, statusesRes] = await Promise.all([
-            ordersService.listMine(),
-            ordersService.statuses(),
-          ]);
-          if (cancelled) return;
-          if (!ordersRes.success) {
-            setError(ordersRes.message || 'Không tải được đơn hàng.');
-            setOrders([]);
-            setTabs([{ key: 'all', label: 'Tất cả' }]);
-            return;
-          }
+  useEffect(() => {
+    if (!isFocused) return;
+    let cancelled = false;
 
-          const rows = ordersRes.data?.orders ?? [];
-          setOrders(rows);
-          const statusTabs: StatusTab[] =
-            statusesRes.success && Array.isArray(statusesRes.data?.statuses)
-              ? statusesRes.data.statuses.map((s: OrderStatusItem) => ({ key: s.value, label: s.label }))
-              : [];
-          setTabs([{ key: 'all', label: 'Tất cả' }, ...statusTabs]);
-        } catch (e) {
-          if (!cancelled) {
-            setError(e instanceof Error ? e.message : 'Không tải được đơn hàng.');
-            setOrders([]);
-            setTabs([{ key: 'all', label: 'Tất cả' }]);
-          }
-        } finally {
-          if (!cancelled) setLoading(false);
+    async function loadOrders() {
+      setLoading(true);
+      setError('');
+      try {
+        const keyword = debouncedSearch.trim();
+        const [ordersRes, statusesRes] = await Promise.all([
+          keyword ? ordersService.search({ q: keyword }) : ordersService.listMine(),
+          ordersService.statuses(),
+        ]);
+        if (cancelled) return;
+        if (!ordersRes.success) {
+          setError(ordersRes.message || 'Không tải được đơn hàng.');
+          setOrders([]);
+          setTabs([{ key: 'all', label: 'Tất cả' }]);
+          return;
         }
-      }
 
-      void loadOrders();
-      return () => {
-        cancelled = true;
-      };
-    }, []),
-  );
+        const rows = ordersRes.data?.orders ?? [];
+        setOrders(rows);
+        setVisibleCount(PAGE_SIZE);
+        const statusTabs: StatusTab[] =
+          statusesRes.success && Array.isArray(statusesRes.data?.statuses)
+            ? statusesRes.data.statuses.map((s: OrderStatusItem) => ({ key: s.value, label: s.label }))
+            : [];
+        setTabs([{ key: 'all', label: 'Tất cả' }, ...statusTabs]);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Không tải được đơn hàng.');
+          setOrders([]);
+          setTabs([{ key: 'all', label: 'Tất cả' }]);
+          setVisibleCount(PAGE_SIZE);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadOrders();
+    return () => {
+      cancelled = true;
+    };
+  }, [isFocused, debouncedSearch]);
 
   const filteredOrders = useMemo(() => {
     if (activeTab === 'all') return orders;
     return orders.filter((o) => o.order_status === activeTab);
   }, [orders, activeTab]);
 
+  const visibleOrders = useMemo(() => filteredOrders.slice(0, visibleCount), [filteredOrders, visibleCount]);
+  const hasMore = visibleCount < filteredOrders.length;
+
+  function handleListScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (loading || !hasMore) return;
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const threshold = 80;
+    const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - threshold;
+    if (isNearBottom) {
+      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredOrders.length));
+    }
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top', 'bottom']}>
       <View className="flex-1">
-        <View className="flex-row items-center border-b border-slate-200 bg-white px-3 py-3">
-          <Text className="flex-1 text-2xl font-semibold tracking-tight text-slate-900">Danh sách đơn hàng</Text>
-          <Pressable className="h-10 w-10 items-center justify-center rounded-full active:bg-slate-100">
-            <Feather name="search" size={22} color="#22c55e" />
-          </Pressable>
-        </View>
-
-        <View className="border-b border-slate-200 bg-white px-4 py-2">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View className="border-b border-slate-200 bg-white px-3 pb-1 pt-2">
+          <Text className="text-2xl font-semibold tracking-tight text-slate-900">Danh sách đơn hàng</Text>
+          <View className="mt-2 flex-row items-center rounded-xl bg-slate-100 px-3 py-3">
+            <Feather name="search" size={20} color="#94a3b8" />
+            <TextInput
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder="Tìm kiếm theo tên hoặc mã đơn hàng..."
+              placeholderTextColor="#94a3b8"
+              className="ml-2 flex-1 text-base text-slate-700"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3">
             <View className="flex-row gap-2">
               {tabs.map((tab) => (
                 <Pressable
@@ -104,7 +149,10 @@ export default function OrdersScreen() {
                   className={`rounded-xl px-4 py-2 ${
                     activeTab === tab.key ? 'border border-green-100 bg-green-50' : ''
                   }`}
-                  onPress={() => setActiveTab(tab.key)}>
+                  onPress={() => {
+                    setActiveTab(tab.key);
+                    setVisibleCount(PAGE_SIZE);
+                  }}>
                   <Text
                     className={`text-base font-semibold ${
                       activeTab === tab.key ? 'text-green-500' : 'text-slate-400'
@@ -117,7 +165,11 @@ export default function OrdersScreen() {
           </ScrollView>
         </View>
 
-        <ScrollView className="flex-1" contentContainerClassName="px-4 pb-28 pt-4">
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="px-4 pb-28 pt-4"
+          onScroll={handleListScroll}
+          scrollEventThrottle={16}>
           {loading ? (
             <View className="items-center py-10">
               <ActivityIndicator size="small" color="#22c55e" />
@@ -130,7 +182,8 @@ export default function OrdersScreen() {
               <Text className="mt-3 text-center text-sm font-medium text-slate-500">Hiện không có đơn hàng nào</Text>
             </View>
           ) : (
-            filteredOrders.map((order) => {
+            <>
+              {visibleOrders.map((order) => {
               const status = getOrderStatusPresentation(order.order_status, order.order_label_status);
               const hasInvoiceFile = order.has_invoice_file === true;
               const hasDeliveryReceipt = order.has_delivery_receipt_paths === true;
@@ -237,11 +290,19 @@ export default function OrdersScreen() {
                   ) : null}
                 </Pressable>
               );
-            })
+              })}
+              {hasMore ? (
+                <View className="items-center py-4">
+                  <ActivityIndicator size="small" color="#22c55e" />
+                </View>
+              ) : null}
+            </>
           )}
         </ScrollView>
 
-        <Pressable className="absolute bottom-24 right-5 h-16 w-16 items-center justify-center rounded-full bg-green-500 shadow-lg shadow-green-400/40 active:bg-green-600">
+        <Pressable
+          className="absolute bottom-24 right-5 h-16 w-16 items-center justify-center rounded-full bg-green-500 shadow-lg shadow-green-400/40 active:bg-green-600"
+          onPress={() => router.push('/(main)/create-order')}>
           <Ionicons name="add" size={34} color="#ffffff" />
         </Pressable>
       </View>

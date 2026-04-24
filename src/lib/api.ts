@@ -42,7 +42,29 @@ function toRequestError(error: AxiosError) {
   const data = error.response?.data;
   const serverMessage = extractErrorMessage(data);
   const fallbackMessage = status ? `Request failed (${status})` : 'Request failed';
-  return new Error(serverMessage || fallbackMessage);
+  const requestError = new Error(serverMessage || fallbackMessage) as Error & {
+    status?: number;
+    responseData?: unknown;
+    fieldErrors?: Record<string, string[]>;
+  };
+  requestError.status = status;
+  requestError.responseData = data;
+  if (data && typeof data === 'object') {
+    const candidate = data as Record<string, unknown>;
+    if (candidate.errors && typeof candidate.errors === 'object') {
+      const raw = candidate.errors as Record<string, unknown>;
+      const normalized: Record<string, string[]> = {};
+      for (const [key, val] of Object.entries(raw)) {
+        if (Array.isArray(val)) {
+          normalized[key] = val.filter((m): m is string => typeof m === 'string');
+        } else if (typeof val === 'string' && val.trim()) {
+          normalized[key] = [val];
+        }
+      }
+      requestError.fieldErrors = normalized;
+    }
+  }
+  return requestError;
 }
 
 export const apiClient = axios.create({

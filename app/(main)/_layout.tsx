@@ -1,4 +1,5 @@
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 
@@ -16,6 +17,25 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => {
+        const currentRouteName = props.state.routes[props.state.index]?.name;
+        const parentTabByHiddenRoute: Record<string, string> = {
+          'create-order': 'orders',
+          'order-detail': 'orders',
+        };
+        const parentTabName = currentRouteName ? parentTabByHiddenRoute[currentRouteName] : undefined;
+
+        if (!parentTabName) {
+          return <BottomTabBar {...props} />;
+        }
+
+        const parentTabIndex = props.state.routes.findIndex((route) => route.name === parentTabName);
+        if (parentTabIndex < 0) {
+          return <BottomTabBar {...props} />;
+        }
+
+        return <BottomTabBar {...props} state={{ ...props.state, index: parentTabIndex }} />;
+      }}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#22C55E',

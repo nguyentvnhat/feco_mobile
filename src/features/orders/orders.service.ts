@@ -14,6 +14,15 @@ export const ordersService = {
     return api.get<ListOrdersApiResponse>('/orders', limit !== undefined ? { limit } : undefined);
   },
 
+  search(params: { q: string; limit?: number }) {
+    const q = params.q.trim();
+    const limit = params.limit;
+    return api.get<ListOrdersApiResponse>(
+      '/orders/search',
+      limit !== undefined ? { q, limit } : { q },
+    );
+  },
+
   statuses() {
     return api.get<OrderStatusesApiResponse>('/orders/statuses');
   },

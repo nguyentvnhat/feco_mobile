@@ -33,6 +33,14 @@ function toVietnameseStatus(status?: string | null) {
   return status || '--';
 }
 
+function withCurrencySuffix(value?: string | null, currency?: string | null) {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return '--';
+  if (/[đ₫]$/i.test(trimmed)) return trimmed;
+  const normalizedCurrency = (currency ?? '').trim();
+  return normalizedCurrency ? `${trimmed}${normalizedCurrency}` : `${trimmed}đ`;
+}
+
 export function AgentsScreen() {
   const [activeTab, setActiveTab] = useState<StatusTab['key']>('all');
   const [loading, setLoading] = useState(true);
@@ -135,7 +143,9 @@ export function AgentsScreen() {
             <Text className="text-center text-sm text-red-600">{error}</Text>
           ) : filteredAgents.length === 0 ? (
             <View className="items-center py-12">
-              <MaterialCommunityIcons name="account-group-outline" size={56} color="#94a3b8" />
+              <View className="h-20 w-20 items-center justify-center rounded-full bg-green-50">
+                <MaterialCommunityIcons name="account-group-outline" size={40} color="#22c55e" />
+              </View>
               <Text className="mt-3 text-center text-sm font-medium text-slate-500">
                 Hiện không có đại lý nào
               </Text>
@@ -161,7 +171,17 @@ export function AgentsScreen() {
                   <Text className="ml-1 text-base text-slate-500">{[agent.ward, agent.city].filter(Boolean).join(', ') || '--'}</Text>
                 </View>
 
-                <Text className="mt-2 text-base font-semibold text-slate-400">MÃ ĐẠI LÝ: {agent.code || '--'}</Text>
+                <View className="mt-3">
+                  <View className="flex-row items-center">
+                    <MaterialCommunityIcons name="cash-multiple" size={16} color="#22C55E" />
+                    <Text className="ml-2 text-3xl font-bold text-green-500">
+                      {withCurrencySuffix(agent.total_revenue, agent.currency)}
+                    </Text>
+                  </View>
+                  <Text className="mt-2 text-base font-semibold uppercase tracking-wide text-slate-400">
+                    Số đơn: {agent.order_sold_count ?? 0}
+                  </Text>
+                </View>
               </View>
             ))
           )}

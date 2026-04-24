@@ -19,11 +19,20 @@ const shortcuts = [
 
 const ORDERS_LIMIT = 5;
 
+function withCurrencySuffix(value?: string | null) {
+  if (value == null || value === '') return '--';
+  const trimmed = String(value).trim();
+  if (trimmed === '--') return '--';
+  return trimmed.endsWith('đ') ? trimmed : `${trimmed}đ`;
+}
+
 export default function HomeScreen() {
   const [recentOrders, setRecentOrders] = useState<RecentOrderRow[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState('');
   const [agentName, setAgentName] = useState('FECO X3');
+  const [monthRevenue, setMonthRevenue] = useState('--');
+  const [monthCommission, setMonthCommission] = useState('--');
 
   useFocusEffect(
     useCallback(() => {
@@ -39,11 +48,18 @@ export default function HomeScreen() {
           ]);
           if (cancelled) return;
           if (meRes.success) {
-            const rawName = meRes.data?.agent?.name;
+            const agent = meRes.data?.agent;
+            const rawName = agent?.name;
             const normalizedName = typeof rawName === 'string' ? rawName.trim() : '';
             setAgentName(normalizedName || 'FECO X3');
+            const rev = agent?.month_revenue;
+            const com = agent?.month_commission;
+            setMonthRevenue(typeof rev === 'string' && rev.trim() ? withCurrencySuffix(rev) : '--');
+            setMonthCommission(typeof com === 'string' && com.trim() ? withCurrencySuffix(com) : '--');
           } else {
             setAgentName('FECO X3');
+            setMonthRevenue('--');
+            setMonthCommission('--');
           }
 
           if (!ordersRes.success) {
@@ -58,6 +74,8 @@ export default function HomeScreen() {
             setOrdersError(e instanceof Error ? e.message : 'Không tải được đơn hàng.');
             setRecentOrders([]);
             setAgentName('FECO X3');
+            setMonthRevenue('--');
+            setMonthCommission('--');
           }
         } finally {
           if (!cancelled) {
@@ -91,23 +109,12 @@ export default function HomeScreen() {
             </View>
 
             <View className="mt-4 rounded-xl bg-green-500 px-5 py-5 shadow-sm">
-              <Text className="text-base font-semibold text-green-100">Doanh số tháng này</Text>
-              <Text className="mt-1 text-2xl font-semibold tracking-tight text-white">125.400.000đ</Text>
+              <Text className="text-base font-semibold text-green-100">Doanh thu tháng này</Text>
+              <Text className="mt-1 text-2xl font-semibold tracking-tight text-white">{monthRevenue}</Text>
 
-              <View className="mt-4 flex-row items-end justify-between">
-                <View>
-                  <Text className="text-xs font-semibold uppercase tracking-wide text-green-100">
-                    MỤC TIÊU THÁNG
-                  </Text>
-                  <Text className="mt-0.5 text-2xl font-semibold tracking-tight text-white">150.000.000đ</Text>
-                </View>
-                <View className="rounded-md bg-white/20 px-3 py-1">
-                  <Text className="text-sm font-semibold text-green-50">83.6%</Text>
-                </View>
-              </View>
-
-              <View className="mt-3 h-2 w-full rounded-full bg-green-400/50">
-                <View className="h-2 w-[84%] rounded-full bg-white" />
+              <View className="mt-5 border-t border-white/20 pt-4">
+                <Text className="text-base font-semibold text-green-100">Hoa hồng tháng này</Text>
+                <Text className="mt-1 text-2xl font-semibold tracking-tight text-white">{monthCommission}</Text>
               </View>
             </View>
 
@@ -169,7 +176,15 @@ export default function HomeScreen() {
                 ) : ordersError ? (
                   <Text className="text-center text-sm text-red-600">{ordersError}</Text>
                 ) : recentOrders.length === 0 ? (
-                  <Text className="text-center text-sm text-slate-500">Chưa có đơn hàng.</Text>
+                  <View className="items-center rounded-2xl border border-dashed border-sky-100 bg-white px-5 py-10">
+                    <View className="h-28 w-28 items-center justify-center rounded-full bg-green-50">
+                      <MaterialCommunityIcons name="shopping-outline" size={42} color="#22c55e" />
+                    </View>
+                    <Text className="mt-6 text-2xl font-semibold tracking-tight text-slate-900">Chưa có đơn hàng nào</Text>
+                    <Text className="mt-2 text-center text-sm font-medium text-slate-400">
+                      Hãy bắt đầu tạo đơn hàng đầu tiên của bạn
+                    </Text>
+                  </View>
                 ) : (
                   recentOrders.map((order) => (
                     <Pressable

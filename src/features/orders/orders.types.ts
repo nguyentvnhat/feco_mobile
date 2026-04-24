@@ -23,6 +23,7 @@ export type OrderListItem = {
   order_status: string;
   order_label_status: string;
   net_amount: string;
+  currency?: string;
   has_invoice_file?: boolean;
   has_delivery_receipt_paths?: boolean;
   customer?: OrderListCustomer | null;

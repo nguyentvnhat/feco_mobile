@@ -130,7 +130,7 @@ export default function LoginScreen() {
 
               <Pressable
                 className={`mt-8 items-center justify-center rounded-lg py-3.5 ${
-                  loading ? 'bg-slate-400' : 'bg-slate-900 active:bg-slate-800'
+                  loading ? 'bg-green-300' : 'bg-green-500 active:bg-green-600'
                 }`}
                 disabled={loading}
                 onPress={handleSignIn}>

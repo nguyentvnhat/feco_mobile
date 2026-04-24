@@ -6,6 +6,9 @@ export type ChildAgent = {
   ward?: string | null;
   region?: string | null;
   status?: string | null;
+  order_sold_count?: number | null;
+  total_revenue?: string | null;
+  currency?: string | null;
 };
 
 export type ChildAgentsResponse = {

@@ -1,6 +1,7 @@
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,8 +21,25 @@ import type {
 } from '@/src/features/orders';
 import { ordersService } from '@/src/features/orders';
 
-function todayYmd() {
-  return new Date().toISOString().slice(0, 10);
+/** Ngày đặt theo lịch Việt Nam (không dùng UTC như toISOString). */
+function orderDateYmdVietnamNow() {
+  const d = new Date();
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = fmt.formatToParts(d);
+  const y = parts.find((p) => p.type === 'year')?.value;
+  const m = parts.find((p) => p.type === 'month')?.value;
+  const day = parts.find((p) => p.type === 'day')?.value;
+  if (y && m && day) return `${y}-${m}-${day}`;
+  const local = new Date();
+  const yy = local.getFullYear();
+  const mm = String(local.getMonth() + 1).padStart(2, '0');
+  const dd = String(local.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
 }
 
 function normalizeLocationCode(code: string | null | undefined) {
@@ -30,10 +48,61 @@ function normalizeLocationCode(code: string | null | undefined) {
   return raw.replace(/^0+/, '') || '0';
 }
 
+function parseMoneyInput(value?: string | null) {
+  if (!value) return 0;
+  const digitsOnly = value.replace(/[^\d]/g, '');
+  if (!digitsOnly) return 0;
+  const parsed = Number.parseInt(digitsOnly, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function pickFirstError(errors: Record<string, string>, key: string) {
+  return errors[key] || '';
+}
+
+function extractNumericPrice(product: CreateMetadataProduct | null) {
+  if (!product) return 0;
+  const productRecord = product as unknown as Record<string, unknown>;
+  const pivot = (productRecord.pivot as Record<string, unknown> | undefined) ?? {};
+  const sourceCandidates: unknown[] = [
+    product.unit_price,
+    productRecord.price,
+    productRecord.unitPrice,
+    productRecord.product_price,
+    productRecord.list_price,
+    pivot.unit_price,
+    pivot.price,
+  ];
+  for (const candidate of sourceCandidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
+    if (typeof candidate === 'string') {
+      const parsed = parseMoneyInput(candidate);
+      if (parsed > 0) return parsed;
+    }
+  }
+  return 0;
+}
+
+function formatVnd(value: number) {
+  return `${new Intl.NumberFormat('vi-VN').format(value)} đ`;
+}
+
+const defaultTabBarStyle = {
+  borderTopWidth: 1,
+  borderTopColor: '#E2E8F0',
+  backgroundColor: '#FFFFFF',
+  paddingTop: 8,
+  paddingBottom: 8,
+  height: 68,
+} as const;
+
 export default function CreateOrderScreen() {
+  const navigation = useNavigation();
   const [bootLoading, setBootLoading] = useState(true);
   const [bootError, setBootError] = useState('');
   const [sellerUserId, setSellerUserId] = useState<number | null>(null);
+  const [agentProfileId, setAgentProfileId] = useState<number | null>(null);
+  const [agentFullAddress, setAgentFullAddress] = useState('');
 
   const [products, setProducts] = useState<CreateMetadataProduct[]>([]);
   const [provinces, setProvinces] = useState<CreateMetadataProvince[]>([]);
@@ -46,19 +115,25 @@ export default function CreateOrderScreen() {
   const [isSameRecipient, setIsSameRecipient] = useState(true);
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
+  const [recipientProvinceCode, setRecipientProvinceCode] = useState('');
+  const [recipientProvinceLabel, setRecipientProvinceLabel] = useState('');
+  const [recipientWardCode, setRecipientWardCode] = useState('');
+  const [recipientWardLabel, setRecipientWardLabel] = useState('');
+  const [recipientAddress, setRecipientAddress] = useState('');
   const [provinceCode, setProvinceCode] = useState('');
   const [provinceLabel, setProvinceLabel] = useState('');
   const [wardCode, setWardCode] = useState('');
   const [wardLabel, setWardLabel] = useState('');
   const [address, setAddress] = useState('');
-  const [orderDate, setOrderDate] = useState(todayYmd());
 
   const [isProductOpen, setIsProductOpen] = useState(false);
   const [isProvinceOpen, setIsProvinceOpen] = useState(false);
   const [isWardOpen, setIsWardOpen] = useState(false);
+  const [isRecipientProvinceOpen, setIsRecipientProvinceOpen] = useState(false);
+  const [isRecipientWardOpen, setIsRecipientWardOpen] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const wardsForProvince = useMemo(() => {
     const selectedProvince = normalizeLocationCode(provinceCode);
@@ -67,6 +142,22 @@ export default function CreateOrderScreen() {
       (w) => normalizeLocationCode(w.province_code) === selectedProvince,
     );
   }, [wards, provinceCode]);
+  const recipientWardsForProvince = useMemo(() => {
+    const selectedProvince = normalizeLocationCode(recipientProvinceCode);
+    if (!selectedProvince) return [];
+    return wards.filter(
+      (w) => normalizeLocationCode(w.province_code) === selectedProvince,
+    );
+  }, [wards, recipientProvinceCode]);
+  const quantityNumber = useMemo(() => {
+    const qty = Number.parseFloat(quantity.trim().replace(',', '.'));
+    return Number.isFinite(qty) && qty > 0 ? qty : 0;
+  }, [quantity]);
+  const selectedProductUnitPrice = useMemo(() => extractNumericPrice(selectedProduct), [selectedProduct]);
+  const estimatedSubtotal = useMemo(
+    () => Math.round(selectedProductUnitPrice * quantityNumber),
+    [selectedProductUnitPrice, quantityNumber],
+  );
 
   function resetForm() {
     setSelectedProduct(null);
@@ -76,16 +167,22 @@ export default function CreateOrderScreen() {
     setIsSameRecipient(true);
     setRecipientName('');
     setRecipientPhone('');
+    setRecipientProvinceCode('');
+    setRecipientProvinceLabel('');
+    setRecipientWardCode('');
+    setRecipientWardLabel('');
+    setRecipientAddress('');
     setProvinceCode('');
     setProvinceLabel('');
     setWardCode('');
     setWardLabel('');
     setAddress('');
-    setOrderDate(todayYmd());
     setIsProductOpen(false);
     setIsProvinceOpen(false);
     setIsWardOpen(false);
-    setFormError('');
+    setIsRecipientProvinceOpen(false);
+    setIsRecipientWardOpen(false);
+    setFieldErrors({});
   }
 
   const loadScreen = useCallback(async () => {
@@ -101,7 +198,14 @@ export default function CreateOrderScreen() {
         setBootError(meRes.message || 'Không xác định được người bán (seller).');
         return;
       }
+      if (!meRes.data?.agent?.id) {
+        setBootError('Không xác định được hồ sơ đại lý đang đăng nhập.');
+        return;
+      }
       setSellerUserId(meRes.data.user.id);
+      setAgentProfileId(meRes.data.agent.id);
+      const agentAddr = (meRes.data.agent.full_address ?? '').trim();
+      setAgentFullAddress(agentAddr);
       setProducts(metaRes.data?.products ?? []);
       setProvinces(metaRes.data?.provinces ?? []);
       setWards(metaRes.data?.wards ?? []);
@@ -112,9 +216,25 @@ export default function CreateOrderScreen() {
     }
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadScreen();
+    }, [loadScreen]),
+  );
+
+  useLayoutEffect(() => {
+    const parent = navigation.getParent();
+    if (!parent) return;
+    parent.setOptions({ tabBarStyle: { display: 'none' } });
+    return () => {
+      parent.setOptions({ tabBarStyle: defaultTabBarStyle });
+    };
+  }, [navigation]);
+
   useEffect(() => {
-    void loadScreen();
-  }, [loadScreen]);
+    if (!isSameRecipient || !agentFullAddress.trim()) return;
+    setAddress((prev) => (prev.trim() ? prev : agentFullAddress.trim()));
+  }, [agentFullAddress, isSameRecipient]);
 
   function pickProvince(p: CreateMetadataProvince) {
     setProvinceCode(p.code);
@@ -131,57 +251,95 @@ export default function CreateOrderScreen() {
     setIsWardOpen(false);
   }
 
+  function pickRecipientProvince(p: CreateMetadataProvince) {
+    setRecipientProvinceCode(p.code);
+    setRecipientProvinceLabel(p.name || p.label || p.code);
+    setRecipientWardCode('');
+    setRecipientWardLabel('');
+    setIsRecipientProvinceOpen(false);
+    setIsRecipientWardOpen(false);
+  }
+
+  function pickRecipientWard(w: CreateMetadataWard) {
+    setRecipientWardCode(w.code);
+    setRecipientWardLabel(w.name || w.label || w.code);
+    setIsRecipientWardOpen(false);
+  }
+
   function pickProduct(p: CreateMetadataProduct) {
     setSelectedProduct(p);
     setIsProductOpen(false);
   }
 
   async function handleSubmit() {
-    setFormError('');
+    setFieldErrors({});
     if (sellerUserId == null) {
-      setFormError('Thiếu thông tin người bán. Vui lòng đăng nhập lại.');
+      setFieldErrors({ __session: 'Thiếu thông tin người bán. Vui lòng đăng nhập lại.' });
       return;
     }
     if (!selectedProduct) {
-      setFormError('Vui lòng chọn sản phẩm.');
+      setFieldErrors({ products: 'Vui lòng chọn sản phẩm.' });
+      return;
+    }
+    const qty = Number.parseFloat(quantity.trim().replace(',', '.'));
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setFieldErrors({ 'products.0.quantity': 'Số lượng phải lớn hơn 0.' });
       return;
     }
     if (!ordererName.trim()) {
-      setFormError('Vui lòng nhập tên người đặt.');
+      setFieldErrors({ customer_name: 'Vui lòng nhập tên người đặt.' });
       return;
     }
     if (ordererName.trim().length < 3) {
-      setFormError('Tên người đặt phải có ít nhất 3 ký tự.');
+      setFieldErrors({ customer_name: 'Tên người đặt phải có ít nhất 3 ký tự.' });
       return;
     }
     if (!ordererPhone.trim()) {
-      setFormError('Vui lòng nhập số điện thoại.');
+      setFieldErrors({ customer_phone: 'Vui lòng nhập số điện thoại.' });
+      return;
+    }
+    const ordererPhoneDigits = ordererPhone.replace(/\D/g, '');
+    if (ordererPhoneDigits.length < 9) {
+      setFieldErrors({ customer_phone: 'Số điện thoại phải có ít nhất 9 số.' });
       return;
     }
     if (!isSameRecipient) {
       if (!recipientName.trim()) {
-        setFormError('Vui lòng nhập tên người nhận.');
+        setFieldErrors({ customer_name: 'Vui lòng nhập tên người nhận.' });
         return;
       }
       if (recipientName.trim().length < 3) {
-        setFormError('Tên người nhận phải có ít nhất 3 ký tự.');
+        setFieldErrors({ customer_name: 'Tên người nhận phải có ít nhất 3 ký tự.' });
         return;
       }
       if (!recipientPhone.trim()) {
-        setFormError('Vui lòng nhập số điện thoại người nhận.');
+        setFieldErrors({ customer_phone: 'Vui lòng nhập số điện thoại người nhận.' });
+        return;
+      }
+      const recipientPhoneDigits = recipientPhone.replace(/\D/g, '');
+      if (recipientPhoneDigits.length < 9) {
+        setFieldErrors({ customer_phone: 'Số điện thoại người nhận phải có ít nhất 9 số.' });
+        return;
+      }
+      if (!recipientProvinceCode) {
+        setFieldErrors({ customer_province_code: 'Vui lòng chọn tỉnh / thành phố người nhận.' });
+        return;
+      }
+      if (!recipientWardCode) {
+        setFieldErrors({ customer_ward_code: 'Vui lòng chọn phường / xã người nhận.' });
         return;
       }
     }
-    if (!provinceCode) {
-      setFormError('Vui lòng chọn tỉnh / thành phố.');
+    if (isSameRecipient && !provinceCode) {
+      setFieldErrors({ customer_province_code: 'Vui lòng chọn tỉnh / thành phố.' });
       return;
     }
-    if (!wardCode) {
-      setFormError('Vui lòng chọn phường / xã.');
+    if (isSameRecipient && !wardCode) {
+      setFieldErrors({ customer_ward_code: 'Vui lòng chọn phường / xã.' });
       return;
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(orderDate.trim())) {
-      setFormError('Ngày giao hàng dự kiến dùng định dạng YYYY-MM-DD.');
+    if (agentProfileId == null) {
+      setFieldErrors({ __session: 'Thiếu hồ sơ đại lý đăng nhập. Vui lòng đăng nhập lại.' });
       return;
     }
 
@@ -189,26 +347,54 @@ export default function CreateOrderScreen() {
     try {
       const shippingName = isSameRecipient ? ordererName.trim() : recipientName.trim();
       const shippingPhone = isSameRecipient ? ordererPhone.trim() : recipientPhone.trim();
+      const shippingProvinceCode = isSameRecipient ? provinceCode : recipientProvinceCode;
+      const shippingWardCode = isSameRecipient ? wardCode : recipientWardCode;
+      const machineCurrentDate = orderDateYmdVietnamNow();
+      const trimmedLine = (isSameRecipient ? address : recipientAddress).trim();
+      const shippingAddressLine =
+        isSameRecipient && !trimmedLine && agentFullAddress.trim()
+          ? agentFullAddress.trim()
+          : trimmedLine;
       const res = await ordersService.createOrder({
-        order_date: orderDate.trim(),
+        order_date: machineCurrentDate,
         seller_user_id: sellerUserId,
-        order_channel: 'direct_sale',
+        agent_profile_id: agentProfileId,
+        order_channel: 'agent_order',
         order_status: 'new',
         customer_name: shippingName,
         customer_phone: shippingPhone,
-        customer_address: address.trim() || null,
-        customer_province_code: provinceCode,
-        customer_ward_code: wardCode,
+        customer_address: shippingAddressLine || null,
+        customer_province_code: shippingProvinceCode,
+        customer_ward_code: shippingWardCode,
+        products: [
+          {
+            product_id: selectedProduct.id,
+            quantity: qty,
+          },
+        ],
       });
       if (!res.success) {
-        setFormError(res.message || 'Tạo đơn thất bại.');
+        setFieldErrors({ products: res.message || 'Tạo đơn thất bại.' });
         return;
       }
       Alert.alert('Thành công', res.message || `Đơn ${res.data?.order_no ?? ''} đã được tạo.`, [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Tạo đơn thất bại.');
+      const fallbackMessage = e instanceof Error ? e.message : 'Tạo đơn thất bại.';
+      const apiError = e as Error & { fieldErrors?: Record<string, string[]> };
+      const rawFieldErrors = apiError.fieldErrors ?? {};
+      const nextFieldErrors: Record<string, string> = {};
+      for (const [key, messages] of Object.entries(rawFieldErrors)) {
+        if (Array.isArray(messages) && messages[0]) {
+          nextFieldErrors[key] = String(messages[0]);
+        }
+      }
+      if (Object.keys(nextFieldErrors).length > 0) {
+        setFieldErrors(nextFieldErrors);
+      } else {
+        setFieldErrors({ __session: fallbackMessage });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -245,10 +431,6 @@ export default function CreateOrderScreen() {
           <>
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
               <View className="px-4 pb-36 pt-4">
-                {formError ? (
-                  <Text className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</Text>
-                ) : null}
-
                 <View className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm shadow-slate-900/5">
                   <View className="mb-4 flex-row items-center">
                     <MaterialCommunityIcons name="cube-outline" size={22} color="#16a34a" />
@@ -272,6 +454,11 @@ export default function CreateOrderScreen() {
                       color="#64748b"
                     />
                   </Pressable>
+                  {pickFirstError(fieldErrors, 'products') || pickFirstError(fieldErrors, 'products.0.product_id') ? (
+                    <Text className="mb-2 text-xs text-red-600">
+                      {pickFirstError(fieldErrors, 'products') || pickFirstError(fieldErrors, 'products.0.product_id')}
+                    </Text>
+                  ) : null}
                   {isProductOpen ? (
                     <View className="mb-4 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
                       <ScrollView nestedScrollEnabled>
@@ -306,6 +493,12 @@ export default function CreateOrderScreen() {
                     />
                     <Text className="text-base text-slate-600">{selectedProduct?.base_unit ?? 'Đơn vị'}</Text>
                   </View>
+                  <Text className="mt-1 text-xs text-slate-500">
+                    Đơn giá: {selectedProductUnitPrice > 0 ? formatVnd(selectedProductUnitPrice) : 'Chưa có giá'}
+                  </Text>
+                  {pickFirstError(fieldErrors, 'products.0.quantity') ? (
+                    <Text className="mt-1 text-xs text-red-600">{pickFirstError(fieldErrors, 'products.0.quantity')}</Text>
+                  ) : null}
                 </View>
 
                 <View className="mt-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm shadow-slate-900/5">
@@ -322,6 +515,9 @@ export default function CreateOrderScreen() {
                     value={ordererName}
                     onChangeText={setOrdererName}
                   />
+                  {pickFirstError(fieldErrors, 'customer_name') ? (
+                    <Text className="-mt-2 mb-3 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_name')}</Text>
+                  ) : null}
 
                   <Text className="mb-1.5 text-xs font-medium text-slate-600">Số điện thoại</Text>
                   <TextInput
@@ -332,43 +528,8 @@ export default function CreateOrderScreen() {
                     onChangeText={setOrdererPhone}
                     keyboardType="phone-pad"
                   />
-
-                  <Pressable
-                    className="mb-4 flex-row items-center"
-                    onPress={() => setIsSameRecipient((prev) => !prev)}>
-                    <MaterialCommunityIcons
-                      name={isSameRecipient ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                      size={22}
-                      color={isSameRecipient ? '#16a34a' : '#64748b'}
-                    />
-                    <Text className="ml-2 text-sm text-slate-700">
-                      Thông tin người đặt hàng và người nhận hàng giống nhau
-                    </Text>
-                  </Pressable>
-
-                  {!isSameRecipient ? (
-                    <>
-                      <Text className="mb-1.5 text-xs font-medium text-slate-600">Tên người nhận</Text>
-                      <TextInput
-                        className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
-                        placeholder="Nhập tên người nhận hàng"
-                        placeholderTextColor="#94a3b8"
-                        value={recipientName}
-                        onChangeText={setRecipientName}
-                      />
-
-                      <Text className="mb-1.5 text-xs font-medium text-slate-600">
-                        Số điện thoại người nhận
-                      </Text>
-                      <TextInput
-                        className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
-                        placeholder="0900000000"
-                        placeholderTextColor="#94a3b8"
-                        value={recipientPhone}
-                        onChangeText={setRecipientPhone}
-                        keyboardType="phone-pad"
-                      />
-                    </>
+                  {pickFirstError(fieldErrors, 'customer_phone') ? (
+                    <Text className="-mt-2 mb-3 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_phone')}</Text>
                   ) : null}
 
                   <Text className="mb-2 text-sm font-semibold text-slate-800">Địa chỉ nhận hàng</Text>
@@ -390,6 +551,11 @@ export default function CreateOrderScreen() {
                       color="#64748b"
                     />
                   </Pressable>
+                  {pickFirstError(fieldErrors, 'customer_province_code') ? (
+                    <Text className="mb-2 text-xs text-red-600">
+                      {pickFirstError(fieldErrors, 'customer_province_code')}
+                    </Text>
+                  ) : null}
                   {isProvinceOpen ? (
                     <View className="mb-3 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
                       <ScrollView nestedScrollEnabled>
@@ -411,10 +577,17 @@ export default function CreateOrderScreen() {
                     className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
                       if (!provinceCode) {
-                        setFormError('Vui lòng chọn tỉnh / thành phố trước.');
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          customer_province_code: 'Vui lòng chọn tỉnh / thành phố trước.',
+                        }));
                         return;
                       }
-                      setFormError('');
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.customer_province_code;
+                        return next;
+                      });
                       setIsWardOpen((prev) => !prev);
                       setIsProductOpen(false);
                       setIsProvinceOpen(false);
@@ -428,6 +601,9 @@ export default function CreateOrderScreen() {
                       color="#64748b"
                     />
                   </Pressable>
+                  {pickFirstError(fieldErrors, 'customer_ward_code') ? (
+                    <Text className="mb-2 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_ward_code')}</Text>
+                  ) : null}
                   {isWardOpen ? (
                     <View className="mb-3 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
                       <ScrollView nestedScrollEnabled>
@@ -460,28 +636,178 @@ export default function CreateOrderScreen() {
                     value={address}
                     onChangeText={setAddress}
                   />
+                  {pickFirstError(fieldErrors, 'customer_address') ? (
+                    <Text className="-mt-2 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_address')}</Text>
+                  ) : null}
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Ngày giao hàng dự kiến (YYYY-MM-DD)</Text>
-                  <View className="flex-row items-center rounded-lg border border-slate-200 bg-white px-3 py-3">
-                    <TextInput
-                      className="flex-1 text-base text-slate-900"
-                      placeholder="2026-04-17"
-                      placeholderTextColor="#94a3b8"
-                      value={orderDate}
-                      onChangeText={setOrderDate}
+                  <Pressable
+                    className="mt-2 flex-row items-center"
+                    onPress={() => {
+                      setIsSameRecipient((prev) => {
+                        const next = !prev;
+                        if (next && !address.trim() && agentFullAddress.trim()) {
+                          setAddress(agentFullAddress.trim());
+                        }
+                        return next;
+                      });
+                    }}>
+                    <MaterialCommunityIcons
+                      name={isSameRecipient ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      size={22}
+                      color={isSameRecipient ? '#16a34a' : '#64748b'}
                     />
-                    <MaterialCommunityIcons name="calendar-month-outline" size={22} color="#64748b" />
-                  </View>
+                    <Text className="ml-2 text-sm text-slate-700">
+                      Thông tin người đặt hàng và người nhận hàng giống nhau
+                    </Text>
+                  </Pressable>
+
+                  {!isSameRecipient ? (
+                    <>
+                      <Text className="mt-4 mb-1.5 text-xs font-medium text-slate-600">Tên người nhận</Text>
+                      <TextInput
+                        className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
+                        placeholder="Nhập tên người nhận hàng"
+                        placeholderTextColor="#94a3b8"
+                        value={recipientName}
+                        onChangeText={setRecipientName}
+                      />
+
+                      <Text className="mb-1.5 text-xs font-medium text-slate-600">
+                        Số điện thoại người nhận
+                      </Text>
+                      <TextInput
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
+                        placeholder="0900000000"
+                        placeholderTextColor="#94a3b8"
+                        value={recipientPhone}
+                        onChangeText={setRecipientPhone}
+                        keyboardType="phone-pad"
+                      />
+
+                      <Text className="mt-4 mb-2 text-sm font-semibold text-slate-800">Địa chỉ người nhận</Text>
+
+                      <Text className="mb-1.5 text-xs font-medium text-slate-600">Tỉnh / Thành phố</Text>
+                      <Pressable
+                        className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
+                        onPress={() => {
+                          setIsRecipientProvinceOpen((prev) => !prev);
+                          setIsProductOpen(false);
+                          setIsProvinceOpen(false);
+                          setIsWardOpen(false);
+                          setIsRecipientWardOpen(false);
+                        }}>
+                        <Text className={`flex-1 pr-2 text-base ${recipientProvinceCode ? 'text-slate-900' : 'text-slate-400'}`}>
+                          {recipientProvinceCode ? recipientProvinceLabel : 'Chọn tỉnh / thành phố'}
+                        </Text>
+                        <MaterialCommunityIcons
+                          name={isRecipientProvinceOpen ? 'chevron-up' : 'chevron-down'}
+                          size={22}
+                          color="#64748b"
+                        />
+                      </Pressable>
+                      {pickFirstError(fieldErrors, 'customer_province_code') ? (
+                        <Text className="mb-2 text-xs text-red-600">
+                          {pickFirstError(fieldErrors, 'customer_province_code')}
+                        </Text>
+                      ) : null}
+                      {isRecipientProvinceOpen ? (
+                        <View className="mb-3 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
+                          <ScrollView nestedScrollEnabled>
+                            {provinces.map((item) => (
+                              <Pressable
+                                key={item.code}
+                                className="border-b border-slate-200 px-3 py-3 active:bg-slate-100"
+                                onPress={() => pickRecipientProvince(item)}>
+                                <Text className="text-base text-slate-900">{item.name}</Text>
+                                <Text className="text-sm text-slate-500">{item.label}</Text>
+                              </Pressable>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      ) : null}
+
+                      <Text className="mb-1.5 text-xs font-medium text-slate-600">Phường / Xã</Text>
+                      <Pressable
+                        className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
+                        onPress={() => {
+                          if (!recipientProvinceCode) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              customer_province_code: 'Vui lòng chọn tỉnh / thành phố người nhận trước.',
+                            }));
+                            return;
+                          }
+                          setFieldErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.customer_province_code;
+                            return next;
+                          });
+                          setIsRecipientWardOpen((prev) => !prev);
+                          setIsProductOpen(false);
+                          setIsProvinceOpen(false);
+                          setIsWardOpen(false);
+                          setIsRecipientProvinceOpen(false);
+                        }}>
+                        <Text className={`flex-1 pr-2 text-base ${recipientWardCode ? 'text-slate-900' : 'text-slate-400'}`}>
+                          {recipientWardCode ? recipientWardLabel : 'Chọn phường / xã'}
+                        </Text>
+                        <MaterialCommunityIcons
+                          name={isRecipientWardOpen ? 'chevron-up' : 'chevron-down'}
+                          size={22}
+                          color="#64748b"
+                        />
+                      </Pressable>
+                      {pickFirstError(fieldErrors, 'customer_ward_code') ? (
+                        <Text className="mb-2 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_ward_code')}</Text>
+                      ) : null}
+                      {isRecipientWardOpen ? (
+                        <View className="mb-3 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
+                          <ScrollView nestedScrollEnabled>
+                            {recipientWardsForProvince.length === 0 ? (
+                              <Text className="px-3 py-4 text-center text-sm text-slate-500">
+                                Không có phường/xã cho tỉnh đã chọn.
+                              </Text>
+                            ) : (
+                              recipientWardsForProvince.map((item) => (
+                                <Pressable
+                                  key={item.code}
+                                  className="border-b border-slate-200 px-3 py-3 active:bg-slate-100"
+                                  onPress={() => pickRecipientWard(item)}>
+                                  <Text className="text-base text-slate-900">{item.name}</Text>
+                                  <Text className="text-sm text-slate-500">{item.label}</Text>
+                                </Pressable>
+                              ))
+                            )}
+                          </ScrollView>
+                        </View>
+                      ) : null}
+
+                      <Text className="mb-1.5 text-xs font-medium text-slate-600">Số nhà, tên đường</Text>
+                      <TextInput
+                        className="min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900"
+                        multiline
+                        placeholder="Số nhà, tên đường..."
+                        placeholderTextColor="#94a3b8"
+                        textAlignVertical="top"
+                        value={recipientAddress}
+                        onChangeText={setRecipientAddress}
+                      />
+                    </>
+                  ) : null}
+
                 </View>
 
                 <View className="mt-6 px-1">
+                  {pickFirstError(fieldErrors, '__session') ? (
+                    <Text className="mb-2 text-xs text-red-600">{pickFirstError(fieldErrors, '__session')}</Text>
+                  ) : null}
                   <View className="mb-2 flex-row items-center justify-between">
                     <Text className="text-base text-slate-700">Phí vận chuyển dự kiến:</Text>
                     <Text className="text-base text-slate-700">Thỏa thuận sau</Text>
                   </View>
                   <View className="flex-row items-center justify-between">
                     <Text className="text-base font-bold text-slate-900">Tạm tính:</Text>
-                    <Text className="text-base font-bold text-green-600">0 VNĐ</Text>
+                    <Text className="text-base font-bold text-green-600">{formatVnd(estimatedSubtotal)}</Text>
                   </View>
                 </View>
               </View>

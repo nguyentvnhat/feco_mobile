@@ -3,6 +3,9 @@ export type CreateMetadataProduct = {
   sku: string;
   name: string;
   base_unit: string;
+  unit_price?: string | null;
+  list_price?: string | number | null;
+  currency?: string | null;
 };
 
 export type CreateMetadataProvince = {
@@ -41,6 +44,10 @@ export type StoreOrderPayload = {
   customer_district_code?: string | null;
   customer_district_name?: string | null;
   customer_ward_code: string;
+  products: {
+    product_id: number;
+    quantity: number;
+  }[];
 };
 
 export type StoreOrderApiResponse = {

@@ -1,7 +1,7 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authService } from '@/src/features/auth/auth.service';
 
@@ -20,6 +20,7 @@ export default function AccountRoute() {
   const [phone, setPhone] = useState('---');
   const [email, setEmail] = useState('---');
   const [address, setAddress] = useState('---');
+  const [logoPath, setLogoPath] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -35,6 +36,7 @@ export default function AccountRoute() {
         setPhone(user?.phone || '---');
         setEmail(user?.email || '---');
         setAddress(agent?.full_address || '---');
+        setLogoPath(agent?.logo_path || null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -69,8 +71,18 @@ export default function AccountRoute() {
         <View className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm shadow-slate-900/5">
           <View className="items-center">
             <View className="h-20 w-20 items-center justify-center rounded-2xl border border-green-100 bg-white shadow-sm">
-              <MaterialCommunityIcons name="fire-circle" size={34} color="#22c55e" />
-              <Text className="mt-1 text-[10px] font-semibold text-green-600">FECO X3</Text>
+              {logoPath ? (
+                <Image
+                  source={{ uri: logoPath }}
+                  className="h-16 w-16 rounded-xl"
+                  resizeMode="contain"
+                />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="fire-circle" size={34} color="#22c55e" />
+                  <Text className="mt-1 text-[10px] font-semibold text-green-600">FECO X3</Text>
+                </>
+              )}
             </View>
             <Text className="mt-4 text-2xl font-semibold tracking-tight text-slate-900">{displayName}</Text>
             <Text className="mt-1 text-sm font-medium text-slate-500">{roleText}</Text>

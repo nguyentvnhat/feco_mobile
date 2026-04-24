@@ -25,9 +25,11 @@ function formatOrderDate(iso: string | null) {
   return `${datePart} ${timePart}`;
 }
 
-function normalizeState(status: string): RewardRow['state'] {
-  if (status === 'pending') return 'pending';
-  if (status === 'rejected') return 'cancelled';
+function normalizeState(orderStatus: string): RewardRow['state'] {
+  if (orderStatus === 'cancelled' || orderStatus === 'returned' || orderStatus === 'return_received') {
+    return 'cancelled';
+  }
+  if (orderStatus === 'delivered') return 'success';
   return 'success';
 }
 
@@ -105,8 +107,8 @@ export default function CommissionHistoryScreen() {
               title: `Đơn hàng ${code}`,
               date: formatOrderDate(order.order_date),
               amount: `+${commission.amount} đ`,
-              status: commission.settlement_status_label_vi || commission.settlement_status,
-              state: normalizeState(commission.settlement_status),
+              status: order.order_label_status || order.order_status,
+              state: normalizeState(order.order_status),
             }));
           });
 
