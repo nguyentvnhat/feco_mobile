@@ -1,0 +1,88 @@
+{
+  "auth": {
+    "login": {
+      "title": "FECO Internal",
+      "subtitle": "Sign in to continue",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@company.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "••••••••",
+      "submit": "Sign In",
+      "internalOnly": "Internal access only",
+      "errors": {
+        "emailRequired": "Email is required",
+        "passwordRequired": "Password is required",
+        "signInFailed": "Sign in failed. Please try again.",
+        "unknown": "Something went wrong. Please try again."
+      }
+    }
+  },
+  "home": {
+    "greeting": "Hello,",
+    "monthRevenue": "Monthly Revenue",
+    "monthCommission": "Monthly Commission",
+    "shortcuts": "Shortcuts",
+    "shortcutCreateOrder": "Create Order",
+    "shortcutOrders": "Orders",
+    "shortcutCommission": "Commission",
+    "shortcutAccount": "Account",
+    "recentOrders": "Recent Orders",
+    "viewAll": "View all",
+    "emptyTitle": "No orders yet",
+    "emptySubtitle": "Start by creating your first order"
+  },
+  "orders": {
+    "title": "Order List",
+    "all": "All",
+    "searchPlaceholder": "Search by customer or order code...",
+    "empty": "No orders found",
+    "customerFallback": "Customer",
+    "orderLabel": "Order",
+    "total": "Total",
+    "invoice": "Invoice",
+    "receipt": "Receipt",
+    "errors": {
+      "loadFailed": "Unable to load orders."
+    }
+  },
+  "createOrder": {
+    "title": "Create Order",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "productInfo": "Product Information",
+    "selectProduct": "Select Product",
+    "selectProductPlaceholder": "-- Select a product from inventory --",
+    "noProducts": "No products in inventory.",
+    "quantity": "Quantity",
+    "unit": "Unit",
+    "unitPrice": "Unit price",
+    "noPrice": "No price",
+    "shippingInfo": "Shipping Information",
+    "ordererName": "Orderer Name",
+    "ordererNamePlaceholder": "Enter orderer name",
+    "ordererPhone": "Phone Number",
+    "phonePlaceholder": "0900000000",
+    "shippingAddress": "Shipping Address",
+    "province": "Province / City",
+    "provincePlaceholder": "Select province / city",
+    "ward": "Ward / Commune",
+    "wardPlaceholder": "Select ward / commune",
+    "noWards": "No wards/communes for selected province.",
+    "streetAddress": "Street address",
+    "streetAddressPlaceholder": "Street number and name...",
+    "sameRecipient": "Orderer and recipient information are the same",
+    "recipientName": "Recipient Name",
+    "recipientNamePlaceholder": "Enter recipient name",
+    "recipientPhone": "Recipient Phone Number",
+    "recipientAddress": "Recipient Address",
+    "shippingFeeEstimate": "Estimated shipping fee:",
+    "shippingFeeToBeAgreed": "To be agreed",
+    "subtotal": "Subtotal:",
+    "confirm": "Confirm Order",
+    "errors": {
+      "loadMeta": "Unable to load order metadata.",
+      "loadSeller": "Unable to identify seller.",
+      "loadAgentProfile": "Unable to identify current agent profile."
+    }
+  }
+}
