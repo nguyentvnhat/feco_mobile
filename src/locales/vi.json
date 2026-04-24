@@ -16,5 +16,73 @@
         "unknown": "Có lỗi xảy ra. Vui lòng thử lại."
       }
     }
+  },
+  "home": {
+    "greeting": "Xin chào,",
+    "monthRevenue": "Doanh thu tháng này",
+    "monthCommission": "Hoa hồng tháng này",
+    "shortcuts": "Lối tắt",
+    "shortcutCreateOrder": "Tạo đơn",
+    "shortcutOrders": "DS Đơn",
+    "shortcutCommission": "Hoa hồng",
+    "shortcutAccount": "Tài khoản",
+    "recentOrders": "Đơn hàng gần đây",
+    "viewAll": "Xem tất cả",
+    "emptyTitle": "Chưa có đơn hàng nào",
+    "emptySubtitle": "Hãy bắt đầu tạo đơn hàng đầu tiên của bạn"
+  },
+  "orders": {
+    "title": "Danh sách đơn hàng",
+    "all": "Tất cả",
+    "searchPlaceholder": "Tìm kiếm theo tên hoặc mã đơn hàng...",
+    "empty": "Hiện không có đơn hàng nào",
+    "customerFallback": "Khách hàng",
+    "orderLabel": "Đơn hàng",
+    "total": "Tổng cộng",
+    "invoice": "Hoá đơn",
+    "receipt": "Biên nhận",
+    "errors": {
+      "loadFailed": "Không tải được đơn hàng."
+    }
+  },
+  "createOrder": {
+    "title": "Tạo Đơn Hàng",
+    "loading": "Đang tải…",
+    "retry": "Thử lại",
+    "productInfo": "Thông tin sản phẩm",
+    "selectProduct": "Chọn sản phẩm",
+    "selectProductPlaceholder": "-- Chọn sản phẩm từ kho --",
+    "noProducts": "Không có sản phẩm trong kho.",
+    "quantity": "Số lượng đặt hàng",
+    "unit": "Đơn vị",
+    "unitPrice": "Đơn giá",
+    "noPrice": "Chưa có giá",
+    "shippingInfo": "Thông tin giao hàng",
+    "ordererName": "Tên người đặt",
+    "ordererNamePlaceholder": "Nhập tên người đặt",
+    "ordererPhone": "Số điện thoại",
+    "phonePlaceholder": "0900000000",
+    "shippingAddress": "Địa chỉ nhận hàng",
+    "province": "Tỉnh / Thành phố",
+    "provincePlaceholder": "Chọn tỉnh / thành phố",
+    "ward": "Phường / Xã",
+    "wardPlaceholder": "Chọn phường / xã",
+    "noWards": "Không có phường/xã cho tỉnh đã chọn.",
+    "streetAddress": "Số nhà, tên đường",
+    "streetAddressPlaceholder": "Số nhà, tên đường...",
+    "sameRecipient": "Thông tin người đặt hàng và người nhận hàng giống nhau",
+    "recipientName": "Tên người nhận",
+    "recipientNamePlaceholder": "Nhập tên người nhận hàng",
+    "recipientPhone": "Số điện thoại người nhận",
+    "recipientAddress": "Địa chỉ người nhận",
+    "shippingFeeEstimate": "Phí vận chuyển dự kiến:",
+    "shippingFeeToBeAgreed": "Thỏa thuận sau",
+    "subtotal": "Tạm tính:",
+    "confirm": "Xác Nhận Đặt Hàng",
+    "errors": {
+      "loadMeta": "Không tải được dữ liệu đơn hàng.",
+      "loadSeller": "Không xác định được người bán (seller).",
+      "loadAgentProfile": "Không xác định được hồ sơ đại lý đang đăng nhập."
+    }
   }
 }

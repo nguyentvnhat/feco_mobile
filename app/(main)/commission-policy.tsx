@@ -82,7 +82,7 @@ export default function CommissionPolicyScreen() {
             onPress={() => router.back()}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#0f172a" />
           </Pressable>
-          <Text className="text-2xl font-semibold tracking-tight text-slate-900">Chính sách hoa hồng</Text>
+          <Text className="text-lg font-semibold text-slate-900">Chính sách hoa hồng</Text>
         </View>
 
         {loading ? (
@@ -111,7 +111,7 @@ export default function CommissionPolicyScreen() {
                       }`}
                       onPress={() => setActivePolicyId(policy.id)}>
                       <Text
-                        className={`text-base font-semibold ${
+                        className={`text-sm font-semibold ${
                           activePolicyId === policy.id ? 'text-green-500' : 'text-slate-400'
                         }`}>
                         {policy.policy_name}
@@ -128,12 +128,12 @@ export default function CommissionPolicyScreen() {
                   <RenderHTML
                     contentWidth={Math.max(width - 48, 0)}
                     source={{ html: activePolicy.description }}
-                    baseStyle={{ color: '#0f172a', fontSize: 16, lineHeight: 24 }}
+                    baseStyle={{ color: '#0f172a', fontSize: 14, lineHeight: 22 }}
                     tagsStyles={{
                       p: { marginTop: 0, marginBottom: 12 },
-                      h1: { fontSize: 24, fontWeight: '700', marginBottom: 12 },
-                      h2: { fontSize: 20, fontWeight: '700', marginBottom: 10 },
-                      h3: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+                      h1: { fontSize: 20, fontWeight: '700', marginBottom: 12 },
+                      h2: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
+                      h3: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
                       li: { marginBottom: 6 },
                     }}
                   />

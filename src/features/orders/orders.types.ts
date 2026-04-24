@@ -97,6 +97,14 @@ export type OrderDetailProduct = {
   currency?: string;
 };
 
+export type OrderDetailAddress = {
+  full_name?: string | null;
+  phone?: string | null;
+  address_line?: string | null;
+  ward_name?: string | null;
+  province_name?: string | null;
+};
+
 export type OrderDetailData = {
   id: number;
   order_no: string;
@@ -114,6 +122,7 @@ export type OrderDetailData = {
   customer_city?: string | null;
   has_invoice_file?: boolean;
   has_delivery_receipt_paths?: boolean;
+  pickup?: OrderDetailAddress | null;
   products: OrderDetailProduct[];
 };
 

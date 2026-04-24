@@ -156,7 +156,12 @@ export default function CommissionHistoryScreen() {
           ) : error ? (
             <Text className="text-center text-sm text-red-600">{error}</Text>
           ) : rewards.length === 0 ? (
-            <Text className="text-center text-sm text-slate-500">Hiện chưa có lịch sử hoa hồng.</Text>
+            <View className="items-center py-10">
+              <View className="h-28 w-28 items-center justify-center rounded-full bg-green-50">
+                <MaterialCommunityIcons name="cash-multiple" size={42} color="#22c55e" />
+              </View>
+              <Text className="mt-3 text-center text-sm text-slate-500">Hiện chưa có lịch sử hoa hồng.</Text>
+            </View>
           ) : (
             rewards.map((item) => {
               const style = stateStyle(item.state);

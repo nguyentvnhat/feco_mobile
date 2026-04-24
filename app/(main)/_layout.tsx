@@ -1,18 +1,49 @@
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import { Redirect, Tabs } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
+import { authService } from '@/src/features/auth/auth.service';
 import { useAuth } from '@/src/features/auth';
 
 export default function TabLayout() {
   const { token, isLoading } = useAuth();
+  const [canAccessAgents, setCanAccessAgents] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMe() {
+      if (!token) {
+        setCanAccessAgents(null);
+        return;
+      }
+      try {
+        const res = await authService.me();
+        if (cancelled) return;
+        const agentTypeCode = (res.data?.agent?.agent_type?.code ?? '').trim().toLowerCase();
+        setCanAccessAgents(agentTypeCode !== 'distributor');
+      } catch {
+        if (!cancelled) {
+          setCanAccessAgents(true);
+        }
+      }
+    }
+
+    void loadMe();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   if (isLoading) {
     return null;
   }
   if (!token) {
     return <Redirect href="/auth/login" />;
+  }
+  if (canAccessAgents === null) {
+    return null;
   }
 
   return (
@@ -22,6 +53,9 @@ export default function TabLayout() {
         const parentTabByHiddenRoute: Record<string, string> = {
           'create-order': 'orders',
           'order-detail': 'orders',
+          'commission-history': 'account',
+          'business-info': 'account',
+          'commission-policy': 'account',
         };
         const parentTabName = currentRouteName ? parentTabByHiddenRoute[currentRouteName] : undefined;
 
@@ -72,6 +106,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="agents"
         options={{
+          href: canAccessAgents ? undefined : null,
           title: 'Đại lý',
           tabBarIcon: ({ color }) => (
             <Ionicons name="people-outline" size={20} color={color} />

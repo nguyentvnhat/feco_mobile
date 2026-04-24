@@ -2,6 +2,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { authService } from '@/src/features/auth/auth.service';
 import type {
@@ -87,6 +88,13 @@ function formatVnd(value: number) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} đ`;
 }
 
+function localizeUnit(unit?: string | null) {
+  const normalized = (unit || '').trim().toLowerCase();
+  if (normalized === 'box') return 'hộp';
+  if (normalized === 'bar') return 'thanh';
+  return unit || '';
+}
+
 const defaultTabBarStyle = {
   borderTopWidth: 1,
   borderTopColor: '#E2E8F0',
@@ -97,6 +105,8 @@ const defaultTabBarStyle = {
 } as const;
 
 export default function CreateOrderScreen() {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [bootLoading, setBootLoading] = useState(true);
   const [bootError, setBootError] = useState('');
@@ -191,15 +201,15 @@ export default function CreateOrderScreen() {
     try {
       const [metaRes, meRes] = await Promise.all([ordersService.fetchCreateMetadata(), authService.me()]);
       if (!metaRes.success) {
-        setBootError(metaRes.message || 'Không tải được dữ liệu đơn hàng.');
+        setBootError(metaRes.message || t('createOrder.errors.loadMeta'));
         return;
       }
       if (!meRes.success || !meRes.data?.user?.id) {
-        setBootError(meRes.message || 'Không xác định được người bán (seller).');
+        setBootError(meRes.message || t('createOrder.errors.loadSeller'));
         return;
       }
       if (!meRes.data?.agent?.id) {
-        setBootError('Không xác định được hồ sơ đại lý đang đăng nhập.');
+        setBootError(t('createOrder.errors.loadAgentProfile'));
         return;
       }
       setSellerUserId(meRes.data.user.id);
@@ -210,11 +220,11 @@ export default function CreateOrderScreen() {
       setProvinces(metaRes.data?.provinces ?? []);
       setWards(metaRes.data?.wards ?? []);
     } catch (e) {
-      setBootError(e instanceof Error ? e.message : 'Không tải được dữ liệu.');
+      setBootError(e instanceof Error ? e.message : t('createOrder.errors.loadMeta'));
     } finally {
       setBootLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -412,32 +422,35 @@ export default function CreateOrderScreen() {
             }}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#0f172a" />
           </Pressable>
-          <Text className="text-lg font-semibold text-slate-900">Tạo Đơn Hàng</Text>
+          <Text className="text-lg font-semibold text-slate-900">{t('createOrder.title')}</Text>
         </View>
 
         {bootLoading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator size="large" color="#16a34a" />
-            <Text className="mt-3 text-sm text-slate-600">Đang tải…</Text>
+            <Text className="mt-3 text-sm text-slate-600">{t('createOrder.loading')}</Text>
           </View>
         ) : bootError ? (
           <View className="flex-1 items-center justify-center px-6">
             <Text className="text-center text-base text-red-600">{bootError}</Text>
             <Pressable className="mt-4 rounded-lg bg-slate-900 px-4 py-3" onPress={() => void loadScreen()}>
-              <Text className="font-semibold text-white">Thử lại</Text>
+              <Text className="font-semibold text-white">{t('createOrder.retry')}</Text>
             </Pressable>
           </View>
         ) : (
           <>
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-              <View className="px-4 pb-36 pt-4">
+            <ScrollView
+              className="flex-1"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
+              <View className="px-4 pt-4">
                 <View className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm shadow-slate-900/5">
                   <View className="mb-4 flex-row items-center">
                     <MaterialCommunityIcons name="cube-outline" size={22} color="#16a34a" />
-                    <Text className="ml-2 text-base font-semibold text-green-600">Thông tin sản phẩm</Text>
+                    <Text className="ml-2 text-base font-semibold text-green-600">{t('createOrder.productInfo')}</Text>
                   </View>
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Chọn sản phẩm</Text>
+                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.selectProduct')}</Text>
                   <Pressable
                     className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
@@ -446,7 +459,7 @@ export default function CreateOrderScreen() {
                       setIsWardOpen(false);
                     }}>
                     <Text className={`flex-1 pr-2 text-base ${selectedProduct ? 'text-slate-900' : 'text-slate-400'}`}>
-                      {selectedProduct ? `${selectedProduct.name} (${selectedProduct.sku})` : '-- Chọn sản phẩm từ kho --'}
+                      {selectedProduct ? `${selectedProduct.name} (${selectedProduct.sku})` : t('createOrder.selectProductPlaceholder')}
                     </Text>
                     <MaterialCommunityIcons
                       name={isProductOpen ? 'chevron-up' : 'chevron-down'}
@@ -464,7 +477,7 @@ export default function CreateOrderScreen() {
                       <ScrollView nestedScrollEnabled>
                         {products.length === 0 ? (
                           <Text className="px-3 py-4 text-center text-sm text-slate-500">
-                            Không có sản phẩm trong kho.
+                            {t('createOrder.noProducts')}
                           </Text>
                         ) : (
                           products.map((item) => (
@@ -474,7 +487,7 @@ export default function CreateOrderScreen() {
                               onPress={() => pickProduct(item)}>
                               <Text className="text-base font-medium text-slate-900">{item.name}</Text>
                               <Text className="text-sm text-slate-500">
-                                {item.sku} · {item.base_unit}
+                                {item.sku} · {localizeUnit(item.base_unit)}
                               </Text>
                             </Pressable>
                           ))
@@ -483,7 +496,7 @@ export default function CreateOrderScreen() {
                     </View>
                   ) : null}
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Số lượng đặt hàng</Text>
+                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.quantity')}</Text>
                   <View className="flex-row items-center rounded-lg border border-slate-200 bg-white px-3 py-3">
                     <TextInput
                       className="min-h-[44px] flex-1 text-base text-slate-900"
@@ -491,10 +504,12 @@ export default function CreateOrderScreen() {
                       onChangeText={setQuantity}
                       keyboardType="decimal-pad"
                     />
-                    <Text className="text-base text-slate-600">{selectedProduct?.base_unit ?? 'Đơn vị'}</Text>
+                    <Text className="text-base text-slate-600">
+                      {selectedProduct ? localizeUnit(selectedProduct.base_unit) : t('createOrder.unit')}
+                    </Text>
                   </View>
                   <Text className="mt-1 text-xs text-slate-500">
-                    Đơn giá: {selectedProductUnitPrice > 0 ? formatVnd(selectedProductUnitPrice) : 'Chưa có giá'}
+                    {t('createOrder.unitPrice')}: {selectedProductUnitPrice > 0 ? formatVnd(selectedProductUnitPrice) : t('createOrder.noPrice')}
                   </Text>
                   {pickFirstError(fieldErrors, 'products.0.quantity') ? (
                     <Text className="mt-1 text-xs text-red-600">{pickFirstError(fieldErrors, 'products.0.quantity')}</Text>
@@ -504,13 +519,13 @@ export default function CreateOrderScreen() {
                 <View className="mt-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm shadow-slate-900/5">
                   <View className="mb-4 flex-row items-center">
                     <MaterialCommunityIcons name="map-marker-outline" size={22} color="#16a34a" />
-                    <Text className="ml-2 text-base font-semibold text-green-600">Thông tin giao hàng</Text>
+                    <Text className="ml-2 text-base font-semibold text-green-600">{t('createOrder.shippingInfo')}</Text>
                   </View>
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Tên người đặt</Text>
+                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.ordererName')}</Text>
                   <TextInput
                     className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
-                    placeholder="Nhập tên người đặt"
+                    placeholder={t('createOrder.ordererNamePlaceholder')}
                     placeholderTextColor="#94a3b8"
                     value={ordererName}
                     onChangeText={setOrdererName}
@@ -519,10 +534,10 @@ export default function CreateOrderScreen() {
                     <Text className="-mt-2 mb-3 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_name')}</Text>
                   ) : null}
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Số điện thoại</Text>
+                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.ordererPhone')}</Text>
                   <TextInput
                     className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
-                    placeholder="0900000000"
+                    placeholder={t('createOrder.phonePlaceholder')}
                     placeholderTextColor="#94a3b8"
                     value={ordererPhone}
                     onChangeText={setOrdererPhone}
@@ -532,9 +547,9 @@ export default function CreateOrderScreen() {
                     <Text className="-mt-2 mb-3 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_phone')}</Text>
                   ) : null}
 
-                  <Text className="mb-2 text-sm font-semibold text-slate-800">Địa chỉ nhận hàng</Text>
+                  <Text className="mb-2 text-sm font-semibold text-slate-800">{t('createOrder.shippingAddress')}</Text>
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Tỉnh / Thành phố</Text>
+                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.province')}</Text>
                   <Pressable
                     className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
@@ -543,7 +558,7 @@ export default function CreateOrderScreen() {
                       setIsWardOpen(false);
                     }}>
                     <Text className={`flex-1 pr-2 text-base ${provinceCode ? 'text-slate-900' : 'text-slate-400'}`}>
-                      {provinceCode ? provinceLabel : 'Chọn tỉnh / thành phố'}
+                      {provinceCode ? provinceLabel : t('createOrder.provincePlaceholder')}
                     </Text>
                     <MaterialCommunityIcons
                       name={isProvinceOpen ? 'chevron-up' : 'chevron-down'}
@@ -572,7 +587,7 @@ export default function CreateOrderScreen() {
                     </View>
                   ) : null}
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Phường / Xã</Text>
+                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.ward')}</Text>
                   <Pressable
                     className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
@@ -593,7 +608,7 @@ export default function CreateOrderScreen() {
                       setIsProvinceOpen(false);
                     }}>
                     <Text className={`flex-1 pr-2 text-base ${wardCode ? 'text-slate-900' : 'text-slate-400'}`}>
-                      {wardCode ? wardLabel : 'Chọn phường / xã'}
+                      {wardCode ? wardLabel : t('createOrder.wardPlaceholder')}
                     </Text>
                     <MaterialCommunityIcons
                       name={isWardOpen ? 'chevron-up' : 'chevron-down'}
@@ -609,7 +624,7 @@ export default function CreateOrderScreen() {
                       <ScrollView nestedScrollEnabled>
                         {wardsForProvince.length === 0 ? (
                           <Text className="px-3 py-4 text-center text-sm text-slate-500">
-                            Không có phường/xã cho tỉnh đã chọn.
+                            {t('createOrder.noWards')}
                           </Text>
                         ) : (
                           wardsForProvince.map((item) => (
@@ -626,11 +641,11 @@ export default function CreateOrderScreen() {
                     </View>
                   ) : null}
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">Số nhà, tên đường</Text>
+                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.streetAddress')}</Text>
                   <TextInput
                     className="mb-4 min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900"
                     multiline
-                    placeholder="Số nhà, tên đường..."
+                    placeholder={t('createOrder.streetAddressPlaceholder')}
                     placeholderTextColor="#94a3b8"
                     textAlignVertical="top"
                     value={address}
@@ -657,36 +672,36 @@ export default function CreateOrderScreen() {
                       color={isSameRecipient ? '#16a34a' : '#64748b'}
                     />
                     <Text className="ml-2 text-sm text-slate-700">
-                      Thông tin người đặt hàng và người nhận hàng giống nhau
+                      {t('createOrder.sameRecipient')}
                     </Text>
                   </Pressable>
 
                   {!isSameRecipient ? (
                     <>
-                      <Text className="mt-4 mb-1.5 text-xs font-medium text-slate-600">Tên người nhận</Text>
+                      <Text className="mt-4 mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.recipientName')}</Text>
                       <TextInput
                         className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
-                        placeholder="Nhập tên người nhận hàng"
+                        placeholder={t('createOrder.recipientNamePlaceholder')}
                         placeholderTextColor="#94a3b8"
                         value={recipientName}
                         onChangeText={setRecipientName}
                       />
 
                       <Text className="mb-1.5 text-xs font-medium text-slate-600">
-                        Số điện thoại người nhận
+                        {t('createOrder.recipientPhone')}
                       </Text>
                       <TextInput
                         className="rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
-                        placeholder="0900000000"
+                        placeholder={t('createOrder.phonePlaceholder')}
                         placeholderTextColor="#94a3b8"
                         value={recipientPhone}
                         onChangeText={setRecipientPhone}
                         keyboardType="phone-pad"
                       />
 
-                      <Text className="mt-4 mb-2 text-sm font-semibold text-slate-800">Địa chỉ người nhận</Text>
+                      <Text className="mt-4 mb-2 text-sm font-semibold text-slate-800">{t('createOrder.recipientAddress')}</Text>
 
-                      <Text className="mb-1.5 text-xs font-medium text-slate-600">Tỉnh / Thành phố</Text>
+                      <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.province')}</Text>
                       <Pressable
                         className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                         onPress={() => {
@@ -697,7 +712,7 @@ export default function CreateOrderScreen() {
                           setIsRecipientWardOpen(false);
                         }}>
                         <Text className={`flex-1 pr-2 text-base ${recipientProvinceCode ? 'text-slate-900' : 'text-slate-400'}`}>
-                          {recipientProvinceCode ? recipientProvinceLabel : 'Chọn tỉnh / thành phố'}
+                          {recipientProvinceCode ? recipientProvinceLabel : t('createOrder.provincePlaceholder')}
                         </Text>
                         <MaterialCommunityIcons
                           name={isRecipientProvinceOpen ? 'chevron-up' : 'chevron-down'}
@@ -726,7 +741,7 @@ export default function CreateOrderScreen() {
                         </View>
                       ) : null}
 
-                      <Text className="mb-1.5 text-xs font-medium text-slate-600">Phường / Xã</Text>
+                      <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.ward')}</Text>
                       <Pressable
                         className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                         onPress={() => {
@@ -749,7 +764,7 @@ export default function CreateOrderScreen() {
                           setIsRecipientProvinceOpen(false);
                         }}>
                         <Text className={`flex-1 pr-2 text-base ${recipientWardCode ? 'text-slate-900' : 'text-slate-400'}`}>
-                          {recipientWardCode ? recipientWardLabel : 'Chọn phường / xã'}
+                          {recipientWardCode ? recipientWardLabel : t('createOrder.wardPlaceholder')}
                         </Text>
                         <MaterialCommunityIcons
                           name={isRecipientWardOpen ? 'chevron-up' : 'chevron-down'}
@@ -765,7 +780,7 @@ export default function CreateOrderScreen() {
                           <ScrollView nestedScrollEnabled>
                             {recipientWardsForProvince.length === 0 ? (
                               <Text className="px-3 py-4 text-center text-sm text-slate-500">
-                                Không có phường/xã cho tỉnh đã chọn.
+                                {t('createOrder.noWards')}
                               </Text>
                             ) : (
                               recipientWardsForProvince.map((item) => (
@@ -782,11 +797,11 @@ export default function CreateOrderScreen() {
                         </View>
                       ) : null}
 
-                      <Text className="mb-1.5 text-xs font-medium text-slate-600">Số nhà, tên đường</Text>
+                      <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.streetAddress')}</Text>
                       <TextInput
                         className="min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900"
                         multiline
-                        placeholder="Số nhà, tên đường..."
+                        placeholder={t('createOrder.streetAddressPlaceholder')}
                         placeholderTextColor="#94a3b8"
                         textAlignVertical="top"
                         value={recipientAddress}
@@ -802,18 +817,20 @@ export default function CreateOrderScreen() {
                     <Text className="mb-2 text-xs text-red-600">{pickFirstError(fieldErrors, '__session')}</Text>
                   ) : null}
                   <View className="mb-2 flex-row items-center justify-between">
-                    <Text className="text-base text-slate-700">Phí vận chuyển dự kiến:</Text>
-                    <Text className="text-base text-slate-700">Thỏa thuận sau</Text>
+                    <Text className="text-base text-slate-700">{t('createOrder.shippingFeeEstimate')}</Text>
+                    <Text className="text-base text-slate-700">{t('createOrder.shippingFeeToBeAgreed')}</Text>
                   </View>
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-base font-bold text-slate-900">Tạm tính:</Text>
+                    <Text className="text-base font-bold text-slate-900">{t('createOrder.subtotal')}</Text>
                     <Text className="text-base font-bold text-green-600">{formatVnd(estimatedSubtotal)}</Text>
                   </View>
                 </View>
               </View>
             </ScrollView>
 
-            <View className="absolute bottom-0 left-0 right-0 border-t border-slate-200 bg-white px-4 py-3">
+            <View
+              className="absolute left-0 right-0 border-t border-slate-200 bg-white px-4 py-3"
+              style={{ bottom: 0, paddingBottom: 5 }}>
               <Pressable
                 className={`flex-row items-center justify-center rounded-xl py-3.5 ${submitting ? 'bg-slate-400' : 'bg-green-600 active:bg-green-700'}`}
                 disabled={submitting}
@@ -823,7 +840,7 @@ export default function CreateOrderScreen() {
                 ) : (
                   <>
                     <MaterialCommunityIcons name="check-circle-outline" size={22} color="#ffffff" />
-                    <Text className="ml-2 text-base font-bold text-white">Xác Nhận Đặt Hàng</Text>
+                    <Text className="ml-2 text-base font-bold text-white">{t('createOrder.confirm')}</Text>
                   </>
                 )}
               </Pressable>

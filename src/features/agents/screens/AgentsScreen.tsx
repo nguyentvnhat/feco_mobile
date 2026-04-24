@@ -104,13 +104,13 @@ export function AgentsScreen() {
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top', 'bottom']}>
       <View className="flex-1">
         <View className="flex-row items-center border-b border-slate-200 bg-white px-4 py-3">
-          <Text className="text-2xl font-semibold tracking-tight text-slate-900">Quản lý Đại lý</Text>
+          <Text className="text-lg font-semibold text-slate-900">Quản lý Đại lý</Text>
         </View>
 
         <View className="border-b border-slate-200 bg-white px-4 py-3">
           <View className="flex-row items-center rounded-xl bg-slate-100 px-3 py-3">
             <Feather name="search" size={20} color="#94a3b8" />
-            <Text className="ml-2 text-base text-slate-400">Tìm kiếm theo tên hoặc khu vực...</Text>
+            <Text className="ml-2 text-sm text-slate-400">Tìm kiếm theo tên hoặc khu vực...</Text>
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3">
@@ -123,7 +123,7 @@ export function AgentsScreen() {
                   }`}
                   onPress={() => setActiveTab(tab.key)}>
                   <Text
-                    className={`text-base font-semibold ${
+                    className={`text-sm font-semibold ${
                       activeTab === tab.key ? 'text-green-500' : 'text-slate-400'
                     }`}>
                     {tab.label}
@@ -168,17 +168,17 @@ export function AgentsScreen() {
 
                 <View className="mt-2 flex-row items-center">
                   <Ionicons name="location-sharp" size={14} color="#64748b" />
-                  <Text className="ml-1 text-base text-slate-500">{[agent.ward, agent.city].filter(Boolean).join(', ') || '--'}</Text>
+                  <Text className="ml-1 text-sm text-slate-500">{[agent.ward, agent.city].filter(Boolean).join(', ') || '--'}</Text>
                 </View>
 
                 <View className="mt-3">
                   <View className="flex-row items-center">
                     <MaterialCommunityIcons name="cash-multiple" size={16} color="#22C55E" />
-                    <Text className="ml-2 text-3xl font-bold text-green-500">
+                    <Text className="ml-2 text-xl font-bold text-green-500">
                       {withCurrencySuffix(agent.total_revenue, agent.currency)}
                     </Text>
                   </View>
-                  <Text className="mt-2 text-base font-semibold uppercase tracking-wide text-slate-400">
+                  <Text className="mt-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
                     Số đơn: {agent.order_sold_count ?? 0}
                   </Text>
                 </View>

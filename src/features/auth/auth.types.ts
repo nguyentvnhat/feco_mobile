@@ -28,6 +28,11 @@ export type MeResponse = {
       name?: string | null;
       logo_path?: string | null;
       full_address?: string | null;
+      agent_type?: {
+        id?: number | null;
+        code?: string | null;
+        name?: string | null;
+      } | null;
       /** Tổng doanh thu (net) các đơn thuộc đại lý — định dạng tiền VN từ API */
       total_revenue?: string | null;
       /** Doanh thu tháng hiện tại (theo order_month / order_date) */

@@ -2,6 +2,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,13 +10,6 @@ import { authService } from '@/src/features/auth/auth.service';
 import { mapOrderToRecentRow, ordersService } from '@/src/features/orders';
 import type { RecentOrderRow } from '@/src/features/orders';
 import { Spacings } from '@/src/theme';
-
-const shortcuts = [
-  { id: 'create-order', label: 'Tạo đơn', icon: 'plus', color: '#22C55E', bg: '#E9F9EF' },
-  { id: 'orders', label: 'DS Đơn', icon: 'clipboard-text-outline', color: '#F97316', bg: '#FFF2E8' },
-  { id: 'commission', label: 'Hoa hồng', icon: 'cash-multiple', color: '#10B981', bg: '#EAFBF6' },
-  { id: 'account', label: 'Tài khoản', icon: 'account-outline', color: '#A855F7', bg: '#F3ECFF' },
-];
 
 const ORDERS_LIMIT = 5;
 
@@ -27,6 +21,7 @@ function withCurrencySuffix(value?: string | null) {
 }
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const [recentOrders, setRecentOrders] = useState<RecentOrderRow[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState('');
@@ -103,25 +98,30 @@ export default function HomeScreen() {
                 <MaterialCommunityIcons name="clipboard-text-outline" size={24} color="#FB923C" />
               </View>
               <View className="ml-3">
-                <Text className="text-sm text-slate-500">Xin chào,</Text>
+                <Text className="text-sm text-slate-500">{t('home.greeting')}</Text>
                 <Text className="text-2xl font-semibold tracking-tight text-slate-900">{agentName}</Text>
               </View>
             </View>
 
             <View className="mt-4 rounded-xl bg-green-500 px-5 py-5 shadow-sm">
-              <Text className="text-base font-semibold text-green-100">Doanh thu tháng này</Text>
+              <Text className="text-base font-semibold text-green-100">{t('home.monthRevenue')}</Text>
               <Text className="mt-1 text-2xl font-semibold tracking-tight text-white">{monthRevenue}</Text>
 
               <View className="mt-5 border-t border-white/20 pt-4">
-                <Text className="text-base font-semibold text-green-100">Hoa hồng tháng này</Text>
+                <Text className="text-base font-semibold text-green-100">{t('home.monthCommission')}</Text>
                 <Text className="mt-1 text-2xl font-semibold tracking-tight text-white">{monthCommission}</Text>
               </View>
             </View>
 
             <View style={{ marginTop: Spacings.xxl }}>
-              <Text className="text-base font-semibold text-slate-900">Lối tắt</Text>
+              <Text className="text-base font-semibold text-slate-900">{t('home.shortcuts')}</Text>
               <View className="mt-4 flex-row justify-between">
-                {shortcuts.map((item) => (
+                {[
+                  { id: 'create-order', label: t('home.shortcutCreateOrder'), icon: 'plus', color: '#22C55E', bg: '#E9F9EF' },
+                  { id: 'orders', label: t('home.shortcutOrders'), icon: 'clipboard-text-outline', color: '#F97316', bg: '#FFF2E8' },
+                  { id: 'commission', label: t('home.shortcutCommission'), icon: 'cash-multiple', color: '#10B981', bg: '#EAFBF6' },
+                  { id: 'account', label: t('home.shortcutAccount'), icon: 'account-outline', color: '#A855F7', bg: '#F3ECFF' },
+                ].map((item) => (
                   <Pressable
                     key={item.id}
                     className="items-center active:opacity-80"
@@ -162,9 +162,9 @@ export default function HomeScreen() {
 
             <View style={{ marginTop: Spacings.padding }}>
               <View className="flex-row items-center justify-between">
-                <Text className="text-base font-semibold text-slate-900">Đơn hàng gần đây</Text>
+                <Text className="text-base font-semibold text-slate-900">{t('home.recentOrders')}</Text>
                 <Pressable onPress={() => router.push('/(main)/orders')}>
-                  <Text className="text-base font-semibold text-green-600">Xem tất cả</Text>
+                  <Text className="text-base font-semibold text-green-600">{t('home.viewAll')}</Text>
                 </Pressable>
               </View>
 
@@ -180,9 +180,9 @@ export default function HomeScreen() {
                     <View className="h-28 w-28 items-center justify-center rounded-full bg-green-50">
                       <MaterialCommunityIcons name="shopping-outline" size={42} color="#22c55e" />
                     </View>
-                    <Text className="mt-6 text-2xl font-semibold tracking-tight text-slate-900">Chưa có đơn hàng nào</Text>
-                    <Text className="mt-2 text-center text-sm font-medium text-slate-400">
-                      Hãy bắt đầu tạo đơn hàng đầu tiên của bạn
+                    <Text className="mt-6 text-lg font-semibold text-slate-900">{t('home.emptyTitle')}</Text>
+                    <Text className="mt-2 text-center text-sm text-slate-400">
+                      {t('home.emptySubtitle')}
                     </Text>
                   </View>
                 ) : (

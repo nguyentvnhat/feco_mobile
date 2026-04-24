@@ -3,6 +3,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   NativeScrollEvent,
@@ -32,11 +33,12 @@ function localizeUnit(unit?: string | null) {
 }
 
 export default function OrdersScreen() {
+  const { t } = useTranslation();
   const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [orders, setOrders] = useState<OrderListItem[]>([]);
-  const [tabs, setTabs] = useState<StatusTab[]>([{ key: 'all', label: 'Tất cả' }]);
+  const [tabs, setTabs] = useState<StatusTab[]>([{ key: 'all', label: t('orders.all') }]);
   const [activeTab, setActiveTab] = useState('all');
   const [navigatingOrderId, setNavigatingOrderId] = useState<number | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -73,9 +75,9 @@ export default function OrdersScreen() {
         ]);
         if (cancelled) return;
         if (!ordersRes.success) {
-          setError(ordersRes.message || 'Không tải được đơn hàng.');
+          setError(ordersRes.message || t('orders.errors.loadFailed'));
           setOrders([]);
-          setTabs([{ key: 'all', label: 'Tất cả' }]);
+          setTabs([{ key: 'all', label: t('orders.all') }]);
           return;
         }
 
@@ -86,12 +88,12 @@ export default function OrdersScreen() {
           statusesRes.success && Array.isArray(statusesRes.data?.statuses)
             ? statusesRes.data.statuses.map((s: OrderStatusItem) => ({ key: s.value, label: s.label }))
             : [];
-        setTabs([{ key: 'all', label: 'Tất cả' }, ...statusTabs]);
+        setTabs([{ key: 'all', label: t('orders.all') }, ...statusTabs]);
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Không tải được đơn hàng.');
+          setError(e instanceof Error ? e.message : t('orders.errors.loadFailed'));
           setOrders([]);
-          setTabs([{ key: 'all', label: 'Tất cả' }]);
+          setTabs([{ key: 'all', label: t('orders.all') }]);
           setVisibleCount(PAGE_SIZE);
         }
       } finally {
@@ -103,7 +105,7 @@ export default function OrdersScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isFocused, debouncedSearch]);
+  }, [isFocused, debouncedSearch, t]);
 
   const filteredOrders = useMemo(() => {
     if (activeTab === 'all') return orders;
@@ -127,13 +129,13 @@ export default function OrdersScreen() {
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top', 'bottom']}>
       <View className="flex-1">
         <View className="border-b border-slate-200 bg-white px-3 pb-1 pt-2">
-          <Text className="text-2xl font-semibold tracking-tight text-slate-900">Danh sách đơn hàng</Text>
+          <Text className="text-lg font-semibold text-slate-900">{t('orders.title')}</Text>
           <View className="mt-2 flex-row items-center rounded-xl bg-slate-100 px-3 py-3">
             <Feather name="search" size={20} color="#94a3b8" />
             <TextInput
               value={searchText}
               onChangeText={setSearchText}
-              placeholder="Tìm kiếm theo tên hoặc mã đơn hàng..."
+              placeholder={t('orders.searchPlaceholder')}
               placeholderTextColor="#94a3b8"
               className="ml-2 flex-1 text-base text-slate-700"
               autoCapitalize="none"
@@ -178,8 +180,10 @@ export default function OrdersScreen() {
             <Text className="text-center text-sm text-red-600">{error}</Text>
           ) : filteredOrders.length === 0 ? (
             <View className="items-center py-16">
-              <MaterialCommunityIcons name="inbox-outline" size={56} color="#94a3b8" />
-              <Text className="mt-3 text-center text-sm font-medium text-slate-500">Hiện không có đơn hàng nào</Text>
+              <View className="h-28 w-28 items-center justify-center rounded-full bg-green-50">
+                <MaterialCommunityIcons name="inbox-outline" size={42} color="#22c55e" />
+              </View>
+              <Text className="mt-3 text-center text-sm font-medium text-slate-500">{t('orders.empty')}</Text>
             </View>
           ) : (
             <>
@@ -188,7 +192,7 @@ export default function OrdersScreen() {
               const hasInvoiceFile = order.has_invoice_file === true;
               const hasDeliveryReceipt = order.has_delivery_receipt_paths === true;
               const code = order.order_no.startsWith('#') ? order.order_no : `#${order.order_no}`;
-              const customer = order.customer?.customer_name || 'Khách hàng';
+              const customer = order.customer?.customer_name || t('orders.customerFallback');
               const firstProduct = order.products?.[0];
               const isNavigating = navigatingOrderId === order.id;
               return (
@@ -206,7 +210,7 @@ export default function OrdersScreen() {
                   <View className="flex-row items-start justify-between">
                     <View className="flex-1 pr-3">
                       <Text className="text-sm font-semibold tracking-wide text-slate-400">{code}</Text>
-                      <Text className="mt-1 text-xl font-semibold tracking-tight text-slate-900">{customer}</Text>
+                      <Text className="mt-1 text-base font-semibold text-slate-900">{customer}</Text>
                     </View>
                     <View
                       className="max-w-[45%] rounded-md px-3 py-1"
@@ -235,7 +239,7 @@ export default function OrdersScreen() {
                     </View>
                     <View className="ml-3 flex-1">
                       <Text className="text-base font-semibold text-slate-700">
-                        {firstProduct?.product_name || `Đơn hàng ${code}`}
+                        {firstProduct?.product_name || `${t('orders.orderLabel')} ${code}`}
                       </Text>
                       <Text className="mt-0.5 text-sm text-slate-400">
                         {firstProduct
@@ -249,8 +253,8 @@ export default function OrdersScreen() {
 
                   <View className="mt-4 flex-row items-end justify-between border-t border-slate-100 pt-3">
                     <View>
-                      <Text className="text-sm text-slate-400">Tổng cộng</Text>
-                      <Text className="text-2xl font-semibold tracking-tight text-slate-900">{order.net_amount}đ</Text>
+                      <Text className="text-sm text-slate-400">{t('orders.total')}</Text>
+                      <Text className="text-lg font-semibold text-slate-900">{order.net_amount}đ</Text>
                     </View>
                     <View className="flex-row items-center gap-2">
                       <View
@@ -264,7 +268,7 @@ export default function OrdersScreen() {
                         <Text
                           className="ml-1 text-sm font-semibold"
                           style={{ color: hasInvoiceFile ? '#22C55E' : '#64748B' }}>
-                          Hoá đơn
+                          {t('orders.invoice')}
                         </Text>
                       </View>
                       <View
@@ -278,7 +282,7 @@ export default function OrdersScreen() {
                         <Text
                           className="ml-1 text-sm font-semibold"
                           style={{ color: hasDeliveryReceipt ? '#22C55E' : '#64748B' }}>
-                          Biên nhận
+                          {t('orders.receipt')}
                         </Text>
                       </View>
                     </View>

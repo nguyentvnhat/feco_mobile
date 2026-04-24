@@ -22,6 +22,13 @@ function formatDateTime(iso: string | null | undefined) {
   return `${datePart} ${timePart}`;
 }
 
+function localizeUnit(unit?: string | null) {
+  const normalized = (unit || '').trim().toLowerCase();
+  if (normalized === 'box') return 'hộp';
+  if (normalized === 'bar') return 'thanh';
+  return unit || '';
+}
+
 export default function OrderDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[]; source?: string | string[] }>();
   const [loading, setLoading] = useState(true);
@@ -108,6 +115,16 @@ export default function OrderDetailScreen() {
       .filter((part) => part.length > 0);
     return addressParts.join(', ');
   }, [order?.customer_address, order?.customer_ward, order?.customer_city]);
+  const pickupAddress = useMemo(() => {
+    const addressParts = [
+      order?.pickup?.address_line ?? '',
+      order?.pickup?.ward_name ?? '',
+      order?.pickup?.province_name ?? '',
+    ]
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+    return addressParts.join(', ');
+  }, [order?.pickup?.address_line, order?.pickup?.ward_name, order?.pickup?.province_name]);
   const timelineItems = useMemo(() => {
     const currentStatus = (order?.order_status || '').trim();
     const currentIndex = statusSteps.findIndex((s) => s.value === currentStatus);
@@ -140,13 +157,13 @@ export default function OrderDetailScreen() {
             onPress={handleBack}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#0f172a" />
           </Pressable>
-          <Text className="text-2xl font-semibold tracking-tight text-slate-900">Chi Tiết Đơn Hàng</Text>
+          <Text className="text-lg font-semibold text-slate-900">Chi Tiết Đơn Hàng</Text>
         </View>
 
         <ScrollView className="flex-1" contentContainerClassName="px-4 pb-24 pt-4">
           <View className="rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
             <Text className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mã đơn hàng</Text>
-            <Text className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{displayOrderNo}</Text>
+            <Text className="mt-1 text-lg font-semibold text-slate-900">{displayOrderNo}</Text>
 
             <View className="mt-3 flex-row items-center justify-between">
               <View
@@ -192,7 +209,7 @@ export default function OrderDetailScreen() {
           </View>
 
           <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
-            <Text className="text-xl font-semibold text-slate-900">TRẠNG THÁI ĐƠN HÀNG</Text>
+            <Text className="text-base font-semibold text-slate-900">TRẠNG THÁI ĐƠN HÀNG</Text>
             <View className="mt-3">
               {timelineItems.map((step, idx) => (
                 <View key={step.id} className="flex-row">
@@ -225,7 +242,7 @@ export default function OrderDetailScreen() {
           <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
             <View className="mb-3 flex-row items-center">
               <Ionicons name="location-outline" size={18} color="#22c55e" />
-              <Text className="ml-2 text-xl font-semibold text-slate-900">THÔNG TIN GIAO HÀNG</Text>
+              <Text className="ml-2 text-base font-semibold text-slate-900">THÔNG TIN GIAO HÀNG</Text>
             </View>
             <Text className="text-base font-semibold text-slate-900">{order?.customer_name || '--'}</Text>
             <Text className="mt-1 text-base font-semibold text-slate-400">{order?.customer_phone || '--'}</Text>
@@ -233,7 +250,17 @@ export default function OrderDetailScreen() {
           </View>
 
           <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
-            <Text className="text-xl font-semibold text-slate-900">DANH SÁCH SẢN PHẨM</Text>
+            <View className="mb-3 flex-row items-center">
+              <Ionicons name="cube-outline" size={18} color="#22c55e" />
+              <Text className="ml-2 text-base font-semibold text-slate-900">THÔNG TIN LẤY HÀNG</Text>
+            </View>
+            <Text className="text-base font-semibold text-slate-900">{order?.pickup?.full_name || '--'}</Text>
+            <Text className="mt-1 text-base font-semibold text-slate-400">{order?.pickup?.phone || '--'}</Text>
+            <Text className="mt-1 text-base font-semibold text-slate-400">{pickupAddress || '--'}</Text>
+          </View>
+
+          <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
+            <Text className="text-base font-semibold text-slate-900">DANH SÁCH SẢN PHẨM</Text>
             <View className="mt-3">
               {loading ? (
                 <View className="items-center py-6">
@@ -260,10 +287,10 @@ export default function OrderDetailScreen() {
                     <View className="ml-3 flex-1">
                       <Text className="text-base font-semibold text-slate-800">{item.product_name}</Text>
                       <Text className="text-sm text-slate-400">
-                        x {item.quantity} {item.unit || ''}
+                        x {item.quantity} {localizeUnit(item.unit)}
                       </Text>
                     </View>
-                    <Text className="text-2xl font-semibold tracking-tight text-slate-900">
+                    <Text className="text-base font-semibold text-slate-900">
                       {withCurrencySuffix(item.line_amount)}
                     </Text>
                   </View>
@@ -275,21 +302,21 @@ export default function OrderDetailScreen() {
           <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
             <View className="flex-row items-center justify-between">
               <Text className="text-base text-slate-400">Tổng tiền hàng</Text>
-              <Text className="text-2xl font-semibold tracking-tight text-slate-900">
+              <Text className="text-lg font-semibold text-slate-900">
                 {withCurrencySuffix(order?.subtotal_amount)}
               </Text>
             </View>
             {hasDiscount ? (
               <View className="mt-1 flex-row items-center justify-between">
                 <Text className="text-base text-green-500">Chiết khấu</Text>
-                <Text className="text-2xl font-semibold tracking-tight text-green-500">
+                <Text className="text-lg font-semibold text-green-500">
                   -{withCurrencySuffix(order?.discount_amount)}
                 </Text>
               </View>
             ) : null}
             <View className="mt-3 flex-row items-center justify-between border-t border-slate-100 pt-3">
-              <Text className="text-xl font-semibold text-slate-900">Tổng thanh toán</Text>
-              <Text className="text-3xl font-bold text-green-500">
+              <Text className="text-base font-semibold text-slate-900">Tổng thanh toán</Text>
+              <Text className="text-xl font-bold text-green-500">
                 {withCurrencySuffix(order?.net_amount)}
               </Text>
             </View>
