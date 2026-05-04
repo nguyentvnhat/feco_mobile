@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
+import { OfflineBanner } from '@/src/components/offline-banner';
 import { AuthProvider } from '@/src/features/auth';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -31,6 +32,7 @@ export default function RootLayout() {
             <Stack.Screen name="(main)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
+          <OfflineBanner />
           <StatusBar style="auto" />
         </AuthProvider>
       </ThemeProvider>

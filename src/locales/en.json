@@ -61,7 +61,7 @@
     "ordererName": "Orderer Name",
     "ordererNamePlaceholder": "Enter orderer name",
     "ordererPhone": "Phone Number",
-    "phonePlaceholder": "0900000000",
+    "phonePlaceholder": "Enter orderer phone number",
     "shippingAddress": "Shipping Address",
     "province": "Province / City",
     "provincePlaceholder": "Select province / city",
@@ -74,6 +74,8 @@
     "recipientName": "Recipient Name",
     "recipientNamePlaceholder": "Enter recipient name",
     "recipientPhone": "Recipient Phone Number",
+    "recipientPhonePlaceholder": "Enter recipient phone number",
+    "recipientAddressPlaceholder": "Enter recipient address",
     "recipientAddress": "Recipient Address",
     "shippingFeeEstimate": "Estimated shipping fee:",
     "shippingFeeToBeAgreed": "To be agreed",
@@ -84,5 +86,8 @@
       "loadSeller": "Unable to identify seller.",
       "loadAgentProfile": "Unable to identify current agent profile."
     }
+  },
+  "network": {
+    "offline": "No internet connection"
   }
 }

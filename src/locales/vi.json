@@ -57,12 +57,12 @@
     "unit": "Đơn vị",
     "unitPrice": "Đơn giá",
     "noPrice": "Chưa có giá",
-    "shippingInfo": "Thông tin giao hàng",
+    "shippingInfo": "Thông tin giao nhận",
     "ordererName": "Tên người đặt",
     "ordererNamePlaceholder": "Nhập tên người đặt",
     "ordererPhone": "Số điện thoại",
-    "phonePlaceholder": "0900000000",
-    "shippingAddress": "Địa chỉ nhận hàng",
+    "phonePlaceholder": "Nhập số điện thoại người đặt",
+    "shippingAddress": "Thông tin người đặt hàng",
     "province": "Tỉnh / Thành phố",
     "provincePlaceholder": "Chọn tỉnh / thành phố",
     "ward": "Phường / Xã",
@@ -74,15 +74,20 @@
     "recipientName": "Tên người nhận",
     "recipientNamePlaceholder": "Nhập tên người nhận hàng",
     "recipientPhone": "Số điện thoại người nhận",
-    "recipientAddress": "Địa chỉ người nhận",
+    "recipientPhonePlaceholder": "Nhập số điện thoại người nhận",
+    "recipientAddress": "Thông tin người nhận hàng",
+    "recipientAddressPlaceholder": "Nhập địa chỉ người nhận",
     "shippingFeeEstimate": "Phí vận chuyển dự kiến:",
     "shippingFeeToBeAgreed": "Thỏa thuận sau",
     "subtotal": "Tạm tính:",
     "confirm": "Xác Nhận Đặt Hàng",
     "errors": {
       "loadMeta": "Không tải được dữ liệu đơn hàng.",
-      "loadSeller": "Không xác định được người bán (seller).",
+      "loadSeller": "Không xác định được người bán (đại lý).",
       "loadAgentProfile": "Không xác định được hồ sơ đại lý đang đăng nhập."
     }
+  },
+  "network": {
+    "offline": "Không có kết nối mạng"
   }
 }

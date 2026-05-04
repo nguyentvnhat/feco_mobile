@@ -31,7 +31,7 @@ export default function AccountRoute() {
         const user = response.data?.user;
         const agent = response.data?.agent;
         setName(agent?.business_name || user?.name || 'FECO X3');
-        setRoleText(agent?.name ? `Đại lý ${agent.name}` : 'Đại lý chính thức');
+        setRoleText(agent?.name ? `${agent.name}` : 'Đại lý chính thức');
         setAgentCode(agent?.code || (agent?.id ? `ID-${agent.id}` : '---'));
         setPhone(user?.phone || '---');
         setEmail(user?.email || '---');
@@ -91,7 +91,7 @@ export default function AccountRoute() {
           <View className="mt-6 flex-row border-t border-slate-100 pt-4">
             <View className="flex-1 items-center border-r border-slate-100">
               <Text className="text-xs font-semibold uppercase tracking-wide text-slate-300">CẤP BẬC</Text>
-              <Text className="mt-1 text-base font-semibold text-slate-800">Đại lý Cấp 1</Text>
+              <Text className="mt-1 text-base font-semibold text-slate-800">{roleText}</Text>
             </View>
             <View className="flex-1 items-center">
               <Text className="text-xs font-semibold uppercase tracking-wide text-slate-300">MÃ ĐẠI LÝ</Text>
@@ -180,7 +180,7 @@ export default function AccountRoute() {
         </Pressable>
 
         {loading ? <Text className="mt-3 text-center text-xs text-slate-400">Đang tải thông tin...</Text> : null}
-        <Text className="mt-5 text-center text-sm font-semibold text-slate-300">Phiên bản 2.4.0 (Build 102)</Text>
+        <Text className="mt-5 text-center text-sm font-semibold text-slate-300">Bản quyền thuộc về FECO X3</Text>
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,10 +1,33 @@
-import axios, { isAxiosError, type AxiosError } from 'axios';
+import axios, { isAxiosError, isCancel, type AxiosError } from 'axios';
 
 import { getAccessToken, getRefreshToken } from './auth-token';
 import { env } from './env';
+import { getIsOnline } from './network';
 import { clearAllSession } from './secure-session';
 import { ensureSessionReadyForRequest } from './session-hydration';
 import { notifySessionInvalidated } from './session-invalidated';
+
+const REQUEST_TIMEOUT_MS = 30_000;
+
+export class NetworkOfflineError extends Error {
+  readonly code = 'NETWORK_OFFLINE' as const;
+
+  constructor(message = 'No internet connection') {
+    super(message);
+    this.name = 'NetworkOfflineError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+export class RequestTimeoutError extends Error {
+  readonly code = 'TIMEOUT' as const;
+
+  constructor(message = 'Request timed out') {
+    super(message);
+    this.name = 'RequestTimeoutError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
 
 const apiPrefix = '/api/v1';
 const baseUrl = env.apiBaseUrl.replace(/\/+$/, '');
@@ -69,6 +92,7 @@ function toRequestError(error: AxiosError) {
 
 export const apiClient = axios.create({
   baseURL: normalizedBaseUrl,
+  timeout: REQUEST_TIMEOUT_MS,
   headers: {
     Accept: 'application/json',
   },
@@ -76,6 +100,10 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
+  if (!getIsOnline()) {
+    return Promise.reject(new NetworkOfflineError());
+  }
+
   await ensureSessionReadyForRequest(config.url);
 
   const token = getAccessToken();
@@ -97,6 +125,19 @@ apiClient.interceptors.request.use(async (config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    if (!error.response) {
+      if (isCancel(error)) {
+        return Promise.reject(error);
+      }
+      if (error.code === 'ECONNABORTED') {
+        return Promise.reject(new RequestTimeoutError());
+      }
+      if (!getIsOnline() || error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        return Promise.reject(new NetworkOfflineError());
+      }
+      return Promise.reject(new NetworkOfflineError('Unable to reach server'));
+    }
+
     if (error.response?.status === 401) {
       const url = error.config?.url ?? '';
       if (!url.includes('/auth/login')) {

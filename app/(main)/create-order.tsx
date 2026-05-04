@@ -450,7 +450,7 @@ export default function CreateOrderScreen() {
                     <Text className="ml-2 text-base font-semibold text-green-600">{t('createOrder.productInfo')}</Text>
                   </View>
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.selectProduct')}</Text>
+                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.selectProduct')}</Text>
                   <Pressable
                     className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
@@ -468,7 +468,7 @@ export default function CreateOrderScreen() {
                     />
                   </Pressable>
                   {pickFirstError(fieldErrors, 'products') || pickFirstError(fieldErrors, 'products.0.product_id') ? (
-                    <Text className="mb-2 text-xs text-red-600">
+                    <Text className="mb-4 text-xs text-red-600">
                       {pickFirstError(fieldErrors, 'products') || pickFirstError(fieldErrors, 'products.0.product_id')}
                     </Text>
                   ) : null}
@@ -496,8 +496,8 @@ export default function CreateOrderScreen() {
                     </View>
                   ) : null}
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.quantity')}</Text>
-                  <View className="flex-row items-center rounded-lg border border-slate-200 bg-white px-3 py-3">
+                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.quantity')}</Text>
+                  <View className="mb-2 flex-row items-center rounded-lg border border-slate-200 bg-white px-3 py-3">
                     <TextInput
                       className="min-h-[44px] flex-1 text-base text-slate-900"
                       value={quantity}
@@ -508,11 +508,12 @@ export default function CreateOrderScreen() {
                       {selectedProduct ? localizeUnit(selectedProduct.base_unit) : t('createOrder.unit')}
                     </Text>
                   </View>
-                  <Text className="mt-1 text-xs text-slate-500">
+                  <Text
+                    className={`text-xs text-slate-500 ${pickFirstError(fieldErrors, 'products.0.quantity') ? 'mb-2' : 'mb-4'}`}>
                     {t('createOrder.unitPrice')}: {selectedProductUnitPrice > 0 ? formatVnd(selectedProductUnitPrice) : t('createOrder.noPrice')}
                   </Text>
                   {pickFirstError(fieldErrors, 'products.0.quantity') ? (
-                    <Text className="mt-1 text-xs text-red-600">{pickFirstError(fieldErrors, 'products.0.quantity')}</Text>
+                    <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'products.0.quantity')}</Text>
                   ) : null}
                 </View>
 
@@ -521,22 +522,22 @@ export default function CreateOrderScreen() {
                     <MaterialCommunityIcons name="map-marker-outline" size={22} color="#16a34a" />
                     <Text className="ml-2 text-base font-semibold text-green-600">{t('createOrder.shippingInfo')}</Text>
                   </View>
-
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.ordererName')}</Text>
+                  <Text className="mb-3 text-sm font-semibold text-slate-800">{t('createOrder.shippingAddress')}</Text>
+                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.ordererName')}</Text>
                   <TextInput
-                    className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
+                    className={`rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900 ${pickFirstError(fieldErrors, 'customer_name') ? 'mb-2' : 'mb-4'}`}
                     placeholder={t('createOrder.ordererNamePlaceholder')}
                     placeholderTextColor="#94a3b8"
                     value={ordererName}
                     onChangeText={setOrdererName}
                   />
                   {pickFirstError(fieldErrors, 'customer_name') ? (
-                    <Text className="-mt-2 mb-3 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_name')}</Text>
+                    <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_name')}</Text>
                   ) : null}
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.ordererPhone')}</Text>
+                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.ordererPhone')}</Text>
                   <TextInput
-                    className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
+                    className={`rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900 ${pickFirstError(fieldErrors, 'customer_phone') ? 'mb-2' : 'mb-4'}`}
                     placeholder={t('createOrder.phonePlaceholder')}
                     placeholderTextColor="#94a3b8"
                     value={ordererPhone}
@@ -544,14 +545,14 @@ export default function CreateOrderScreen() {
                     keyboardType="phone-pad"
                   />
                   {pickFirstError(fieldErrors, 'customer_phone') ? (
-                    <Text className="-mt-2 mb-3 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_phone')}</Text>
+                    <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_phone')}</Text>
                   ) : null}
 
-                  <Text className="mb-2 text-sm font-semibold text-slate-800">{t('createOrder.shippingAddress')}</Text>
+                  
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.province')}</Text>
+                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.province')}</Text>
                   <Pressable
-                    className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
+                    className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
                       setIsProvinceOpen((prev) => !prev);
                       setIsProductOpen(false);
@@ -567,12 +568,12 @@ export default function CreateOrderScreen() {
                     />
                   </Pressable>
                   {pickFirstError(fieldErrors, 'customer_province_code') ? (
-                    <Text className="mb-2 text-xs text-red-600">
+                    <Text className="mb-4 text-xs text-red-600">
                       {pickFirstError(fieldErrors, 'customer_province_code')}
                     </Text>
                   ) : null}
                   {isProvinceOpen ? (
-                    <View className="mb-3 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
+                    <View className="mb-4 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
                       <ScrollView nestedScrollEnabled>
                         {provinces.map((item) => (
                           <Pressable
@@ -587,9 +588,9 @@ export default function CreateOrderScreen() {
                     </View>
                   ) : null}
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.ward')}</Text>
+                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.ward')}</Text>
                   <Pressable
-                    className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
+                    className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
                       if (!provinceCode) {
                         setFieldErrors((prev) => ({
@@ -617,10 +618,10 @@ export default function CreateOrderScreen() {
                     />
                   </Pressable>
                   {pickFirstError(fieldErrors, 'customer_ward_code') ? (
-                    <Text className="mb-2 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_ward_code')}</Text>
+                    <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_ward_code')}</Text>
                   ) : null}
                   {isWardOpen ? (
-                    <View className="mb-3 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
+                    <View className="mb-4 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
                       <ScrollView nestedScrollEnabled>
                         {wardsForProvince.length === 0 ? (
                           <Text className="px-3 py-4 text-center text-sm text-slate-500">
@@ -641,9 +642,9 @@ export default function CreateOrderScreen() {
                     </View>
                   ) : null}
 
-                  <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.streetAddress')}</Text>
+                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.streetAddress')}</Text>
                   <TextInput
-                    className="mb-4 min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900"
+                    className={`min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900 ${pickFirstError(fieldErrors, 'customer_address') ? 'mb-2' : 'mb-4'}`}
                     multiline
                     placeholder={t('createOrder.streetAddressPlaceholder')}
                     placeholderTextColor="#94a3b8"
@@ -652,11 +653,11 @@ export default function CreateOrderScreen() {
                     onChangeText={setAddress}
                   />
                   {pickFirstError(fieldErrors, 'customer_address') ? (
-                    <Text className="-mt-2 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_address')}</Text>
+                    <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_address')}</Text>
                   ) : null}
 
                   <Pressable
-                    className="mt-2 flex-row items-center"
+                    className="mt-4 flex-row items-center"
                     onPress={() => {
                       setIsSameRecipient((prev) => {
                         const next = !prev;
@@ -678,7 +679,8 @@ export default function CreateOrderScreen() {
 
                   {!isSameRecipient ? (
                     <>
-                      <Text className="mt-4 mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.recipientName')}</Text>
+                      <Text className="mt-4 mb-3 text-sm font-semibold text-slate-800">{t('createOrder.recipientAddress')}</Text>
+                      <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.recipientName')}</Text>
                       <TextInput
                         className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
                         placeholder={t('createOrder.recipientNamePlaceholder')}
@@ -687,23 +689,21 @@ export default function CreateOrderScreen() {
                         onChangeText={setRecipientName}
                       />
 
-                      <Text className="mb-1.5 text-xs font-medium text-slate-600">
+                      <Text className="mb-2 text-xs font-medium text-slate-600">
                         {t('createOrder.recipientPhone')}
                       </Text>
                       <TextInput
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
-                        placeholder={t('createOrder.phonePlaceholder')}
+                        className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
+                        placeholder={t('createOrder.recipientPhonePlaceholder')}
                         placeholderTextColor="#94a3b8"
                         value={recipientPhone}
                         onChangeText={setRecipientPhone}
                         keyboardType="phone-pad"
                       />
 
-                      <Text className="mt-4 mb-2 text-sm font-semibold text-slate-800">{t('createOrder.recipientAddress')}</Text>
-
-                      <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.province')}</Text>
+                      <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.province')}</Text>
                       <Pressable
-                        className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
+                        className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                         onPress={() => {
                           setIsRecipientProvinceOpen((prev) => !prev);
                           setIsProductOpen(false);
@@ -721,12 +721,12 @@ export default function CreateOrderScreen() {
                         />
                       </Pressable>
                       {pickFirstError(fieldErrors, 'customer_province_code') ? (
-                        <Text className="mb-2 text-xs text-red-600">
+                        <Text className="mb-4 text-xs text-red-600">
                           {pickFirstError(fieldErrors, 'customer_province_code')}
                         </Text>
                       ) : null}
                       {isRecipientProvinceOpen ? (
-                        <View className="mb-3 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
+                        <View className="mb-4 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
                           <ScrollView nestedScrollEnabled>
                             {provinces.map((item) => (
                               <Pressable
@@ -741,9 +741,9 @@ export default function CreateOrderScreen() {
                         </View>
                       ) : null}
 
-                      <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.ward')}</Text>
+                      <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.ward')}</Text>
                       <Pressable
-                        className="mb-3 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
+                        className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                         onPress={() => {
                           if (!recipientProvinceCode) {
                             setFieldErrors((prev) => ({
@@ -773,10 +773,10 @@ export default function CreateOrderScreen() {
                         />
                       </Pressable>
                       {pickFirstError(fieldErrors, 'customer_ward_code') ? (
-                        <Text className="mb-2 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_ward_code')}</Text>
+                        <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_ward_code')}</Text>
                       ) : null}
                       {isRecipientWardOpen ? (
-                        <View className="mb-3 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
+                        <View className="mb-4 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
                           <ScrollView nestedScrollEnabled>
                             {recipientWardsForProvince.length === 0 ? (
                               <Text className="px-3 py-4 text-center text-sm text-slate-500">
@@ -797,9 +797,9 @@ export default function CreateOrderScreen() {
                         </View>
                       ) : null}
 
-                      <Text className="mb-1.5 text-xs font-medium text-slate-600">{t('createOrder.streetAddress')}</Text>
+                      <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.streetAddress')}</Text>
                       <TextInput
-                        className="min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900"
+                        className="mb-4 min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900"
                         multiline
                         placeholder={t('createOrder.streetAddressPlaceholder')}
                         placeholderTextColor="#94a3b8"

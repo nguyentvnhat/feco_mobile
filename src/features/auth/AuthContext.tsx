@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { clearSession, setAccessToken, setRefreshToken } from '@/src/lib/auth-token';
+import { onConnectionRestored } from '@/src/lib/network';
 import { readStoredSession, writeStoredSession } from '@/src/lib/secure-session';
 import { markSessionHydrated } from '@/src/lib/session-hydration';
 import { setSessionInvalidatedListener } from '@/src/lib/session-invalidated';
@@ -70,6 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return () => setSessionInvalidatedListener(null);
   }, []);
+
+  useEffect(() => {
+    return onConnectionRestored(() => {
+      if (!token) return;
+      void authService.me().catch(() => {});
+    });
+  }, [token]);
 
   const setSession = useCallback(async (access: string, refresh?: string | null) => {
     const trimmed = access.trim();
