@@ -18,7 +18,7 @@ function formatOrderDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('vi-VN');
 }
 
-function appendCurrency(value: string | null | undefined, currency: string | null | undefined): string {
+export function appendCurrency(value: string | null | undefined, currency: string | null | undefined): string {
   const text = (value ?? '').trim();
   if (!text) return '--';
   if (/[đ₫]$/i.test(text)) return text;

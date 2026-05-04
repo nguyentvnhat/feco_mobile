@@ -81,10 +81,42 @@
     "shippingFeeToBeAgreed": "Thỏa thuận sau",
     "subtotal": "Tạm tính:",
     "confirm": "Xác Nhận Đặt Hàng",
+    "moneyFormat": "{{value}} đ",
+    "units": {
+      "box": "hộp",
+      "bar": "thanh"
+    },
+    "validation": {
+      "sellerRequired": "Thiếu thông tin người bán. Vui lòng đăng nhập lại.",
+      "productRequired": "Vui lòng chọn sản phẩm.",
+      "quantityMin": "Số lượng phải lớn hơn 0.",
+      "ordererNameRequired": "Vui lòng nhập tên người đặt.",
+      "ordererNameMinLength": "Tên người đặt phải có ít nhất 3 ký tự.",
+      "ordererPhoneRequired": "Vui lòng nhập số điện thoại.",
+      "ordererPhoneDigits": "Số điện thoại phải có ít nhất 9 số.",
+      "recipientNameRequired": "Vui lòng nhập tên người nhận.",
+      "recipientNameMinLength": "Tên người nhận phải có ít nhất 3 ký tự.",
+      "recipientPhoneRequired": "Vui lòng nhập số điện thoại người nhận.",
+      "recipientPhoneDigits": "Số điện thoại người nhận phải có ít nhất 9 số.",
+      "recipientProvinceRequired": "Vui lòng chọn tỉnh / thành phố người nhận.",
+      "recipientWardRequired": "Vui lòng chọn phường / xã người nhận.",
+      "provinceRequired": "Vui lòng chọn tỉnh / thành phố.",
+      "wardRequired": "Vui lòng chọn phường / xã.",
+      "agentProfileRequired": "Thiếu hồ sơ đại lý đăng nhập. Vui lòng đăng nhập lại.",
+      "provinceBeforeWard": "Vui lòng chọn tỉnh / thành phố trước.",
+      "recipientProvinceBeforeWard": "Vui lòng chọn tỉnh / thành phố người nhận trước."
+    },
+    "alerts": {
+      "successTitle": "Thành công",
+      "successMessage": "Đơn {{orderNo}} đã được tạo.",
+      "successMessageFallback": "Đơn hàng đã được tạo thành công.",
+      "ok": "OK"
+    },
     "errors": {
       "loadMeta": "Không tải được dữ liệu đơn hàng.",
       "loadSeller": "Không xác định được người bán (đại lý).",
-      "loadAgentProfile": "Không xác định được hồ sơ đại lý đang đăng nhập."
+      "loadAgentProfile": "Không xác định được hồ sơ đại lý đang đăng nhập.",
+      "createFailed": "Tạo đơn thất bại."
     }
   },
   "network": {

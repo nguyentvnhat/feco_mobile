@@ -84,17 +84,6 @@ function extractNumericPrice(product: CreateMetadataProduct | null) {
   return 0;
 }
 
-function formatVnd(value: number) {
-  return `${new Intl.NumberFormat('vi-VN').format(value)} đ`;
-}
-
-function localizeUnit(unit?: string | null) {
-  const normalized = (unit || '').trim().toLowerCase();
-  if (normalized === 'box') return 'hộp';
-  if (normalized === 'bar') return 'thanh';
-  return unit || '';
-}
-
 const defaultTabBarStyle = {
   borderTopWidth: 1,
   borderTopColor: '#E2E8F0',
@@ -105,8 +94,27 @@ const defaultTabBarStyle = {
 } as const;
 
 export default function CreateOrderScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
+
+  const formatMoney = useCallback(
+    (value: number) => {
+      const locale = i18n.language === 'en' ? 'en-US' : 'vi-VN';
+      const formatted = new Intl.NumberFormat(locale).format(value);
+      return t('createOrder.moneyFormat', { value: formatted });
+    },
+    [i18n.language, t],
+  );
+
+  const localizeUnitDisplay = useCallback(
+    (unit?: string | null) => {
+      const normalized = (unit || '').trim().toLowerCase();
+      if (normalized === 'box') return t('createOrder.units.box');
+      if (normalized === 'bar') return t('createOrder.units.bar');
+      return (unit || '').trim();
+    },
+    [t],
+  );
   const navigation = useNavigation();
   const [bootLoading, setBootLoading] = useState(true);
   const [bootError, setBootError] = useState('');
@@ -284,72 +292,72 @@ export default function CreateOrderScreen() {
   async function handleSubmit() {
     setFieldErrors({});
     if (sellerUserId == null) {
-      setFieldErrors({ __session: 'Thiếu thông tin người bán. Vui lòng đăng nhập lại.' });
+      setFieldErrors({ __session: t('createOrder.validation.sellerRequired') });
       return;
     }
     if (!selectedProduct) {
-      setFieldErrors({ products: 'Vui lòng chọn sản phẩm.' });
+      setFieldErrors({ products: t('createOrder.validation.productRequired') });
       return;
     }
     const qty = Number.parseFloat(quantity.trim().replace(',', '.'));
     if (!Number.isFinite(qty) || qty <= 0) {
-      setFieldErrors({ 'products.0.quantity': 'Số lượng phải lớn hơn 0.' });
+      setFieldErrors({ 'products.0.quantity': t('createOrder.validation.quantityMin') });
       return;
     }
     if (!ordererName.trim()) {
-      setFieldErrors({ customer_name: 'Vui lòng nhập tên người đặt.' });
+      setFieldErrors({ customer_name: t('createOrder.validation.ordererNameRequired') });
       return;
     }
     if (ordererName.trim().length < 3) {
-      setFieldErrors({ customer_name: 'Tên người đặt phải có ít nhất 3 ký tự.' });
+      setFieldErrors({ customer_name: t('createOrder.validation.ordererNameMinLength') });
       return;
     }
     if (!ordererPhone.trim()) {
-      setFieldErrors({ customer_phone: 'Vui lòng nhập số điện thoại.' });
+      setFieldErrors({ customer_phone: t('createOrder.validation.ordererPhoneRequired') });
       return;
     }
     const ordererPhoneDigits = ordererPhone.replace(/\D/g, '');
     if (ordererPhoneDigits.length < 9) {
-      setFieldErrors({ customer_phone: 'Số điện thoại phải có ít nhất 9 số.' });
+      setFieldErrors({ customer_phone: t('createOrder.validation.ordererPhoneDigits') });
       return;
     }
     if (!isSameRecipient) {
       if (!recipientName.trim()) {
-        setFieldErrors({ customer_name: 'Vui lòng nhập tên người nhận.' });
+        setFieldErrors({ customer_name: t('createOrder.validation.recipientNameRequired') });
         return;
       }
       if (recipientName.trim().length < 3) {
-        setFieldErrors({ customer_name: 'Tên người nhận phải có ít nhất 3 ký tự.' });
+        setFieldErrors({ customer_name: t('createOrder.validation.recipientNameMinLength') });
         return;
       }
       if (!recipientPhone.trim()) {
-        setFieldErrors({ customer_phone: 'Vui lòng nhập số điện thoại người nhận.' });
+        setFieldErrors({ customer_phone: t('createOrder.validation.recipientPhoneRequired') });
         return;
       }
       const recipientPhoneDigits = recipientPhone.replace(/\D/g, '');
       if (recipientPhoneDigits.length < 9) {
-        setFieldErrors({ customer_phone: 'Số điện thoại người nhận phải có ít nhất 9 số.' });
+        setFieldErrors({ customer_phone: t('createOrder.validation.recipientPhoneDigits') });
         return;
       }
       if (!recipientProvinceCode) {
-        setFieldErrors({ customer_province_code: 'Vui lòng chọn tỉnh / thành phố người nhận.' });
+        setFieldErrors({ customer_province_code: t('createOrder.validation.recipientProvinceRequired') });
         return;
       }
       if (!recipientWardCode) {
-        setFieldErrors({ customer_ward_code: 'Vui lòng chọn phường / xã người nhận.' });
+        setFieldErrors({ customer_ward_code: t('createOrder.validation.recipientWardRequired') });
         return;
       }
     }
     if (isSameRecipient && !provinceCode) {
-      setFieldErrors({ customer_province_code: 'Vui lòng chọn tỉnh / thành phố.' });
+      setFieldErrors({ customer_province_code: t('createOrder.validation.provinceRequired') });
       return;
     }
     if (isSameRecipient && !wardCode) {
-      setFieldErrors({ customer_ward_code: 'Vui lòng chọn phường / xã.' });
+      setFieldErrors({ customer_ward_code: t('createOrder.validation.wardRequired') });
       return;
     }
     if (agentProfileId == null) {
-      setFieldErrors({ __session: 'Thiếu hồ sơ đại lý đăng nhập. Vui lòng đăng nhập lại.' });
+      setFieldErrors({ __session: t('createOrder.validation.agentProfileRequired') });
       return;
     }
 
@@ -384,14 +392,20 @@ export default function CreateOrderScreen() {
         ],
       });
       if (!res.success) {
-        setFieldErrors({ products: res.message || 'Tạo đơn thất bại.' });
+        setFieldErrors({ products: res.message || t('createOrder.errors.createFailed') });
         return;
       }
-      Alert.alert('Thành công', res.message || `Đơn ${res.data?.order_no ?? ''} đã được tạo.`, [
-        { text: 'OK', onPress: () => router.back() },
+      const orderNo = (res.data?.order_no ?? '').trim();
+      const successBody =
+        res.message ||
+        (orderNo
+          ? t('createOrder.alerts.successMessage', { orderNo })
+          : t('createOrder.alerts.successMessageFallback'));
+      Alert.alert(t('createOrder.alerts.successTitle'), successBody, [
+        { text: t('createOrder.alerts.ok'), onPress: () => router.back() },
       ]);
     } catch (e) {
-      const fallbackMessage = e instanceof Error ? e.message : 'Tạo đơn thất bại.';
+      const fallbackMessage = e instanceof Error ? e.message : t('createOrder.errors.createFailed');
       const apiError = e as Error & { fieldErrors?: Record<string, string[]> };
       const rawFieldErrors = apiError.fieldErrors ?? {};
       const nextFieldErrors: Record<string, string> = {};
@@ -487,7 +501,7 @@ export default function CreateOrderScreen() {
                               onPress={() => pickProduct(item)}>
                               <Text className="text-base font-medium text-slate-900">{item.name}</Text>
                               <Text className="text-sm text-slate-500">
-                                {item.sku} · {localizeUnit(item.base_unit)}
+                                {item.sku} · {localizeUnitDisplay(item.base_unit)}
                               </Text>
                             </Pressable>
                           ))
@@ -505,12 +519,13 @@ export default function CreateOrderScreen() {
                       keyboardType="decimal-pad"
                     />
                     <Text className="text-base text-slate-600">
-                      {selectedProduct ? localizeUnit(selectedProduct.base_unit) : t('createOrder.unit')}
+                      {selectedProduct ? localizeUnitDisplay(selectedProduct.base_unit) : t('createOrder.unit')}
                     </Text>
                   </View>
                   <Text
                     className={`text-xs text-slate-500 ${pickFirstError(fieldErrors, 'products.0.quantity') ? 'mb-2' : 'mb-4'}`}>
-                    {t('createOrder.unitPrice')}: {selectedProductUnitPrice > 0 ? formatVnd(selectedProductUnitPrice) : t('createOrder.noPrice')}
+                    {t('createOrder.unitPrice')}:{' '}
+                    {selectedProductUnitPrice > 0 ? formatMoney(selectedProductUnitPrice) : t('createOrder.noPrice')}
                   </Text>
                   {pickFirstError(fieldErrors, 'products.0.quantity') ? (
                     <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'products.0.quantity')}</Text>
@@ -548,7 +563,7 @@ export default function CreateOrderScreen() {
                     <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_phone')}</Text>
                   ) : null}
 
-                  
+
 
                   <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.province')}</Text>
                   <Pressable
@@ -595,7 +610,7 @@ export default function CreateOrderScreen() {
                       if (!provinceCode) {
                         setFieldErrors((prev) => ({
                           ...prev,
-                          customer_province_code: 'Vui lòng chọn tỉnh / thành phố trước.',
+                          customer_province_code: t('createOrder.validation.provinceBeforeWard'),
                         }));
                         return;
                       }
@@ -748,7 +763,7 @@ export default function CreateOrderScreen() {
                           if (!recipientProvinceCode) {
                             setFieldErrors((prev) => ({
                               ...prev,
-                              customer_province_code: 'Vui lòng chọn tỉnh / thành phố người nhận trước.',
+                              customer_province_code: t('createOrder.validation.recipientProvinceBeforeWard'),
                             }));
                             return;
                           }
@@ -794,7 +809,7 @@ export default function CreateOrderScreen() {
                               ))
                             )}
                           </ScrollView>
-                        </View>
+                  </View>
                       ) : null}
 
                       <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.streetAddress')}</Text>
@@ -822,7 +837,7 @@ export default function CreateOrderScreen() {
                   </View>
                   <View className="flex-row items-center justify-between">
                     <Text className="text-base font-bold text-slate-900">{t('createOrder.subtotal')}</Text>
-                    <Text className="text-base font-bold text-green-600">{formatVnd(estimatedSubtotal)}</Text>
+                    <Text className="text-base font-bold text-green-600">{formatMoney(estimatedSubtotal)}</Text>
                   </View>
                 </View>
               </View>

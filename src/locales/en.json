@@ -81,10 +81,42 @@
     "shippingFeeToBeAgreed": "To be agreed",
     "subtotal": "Subtotal:",
     "confirm": "Confirm Order",
+    "moneyFormat": "{{value}} VND",
+    "units": {
+      "box": "box",
+      "bar": "bar"
+    },
+    "validation": {
+      "sellerRequired": "Seller information is missing. Please sign in again.",
+      "productRequired": "Please select a product.",
+      "quantityMin": "Quantity must be greater than 0.",
+      "ordererNameRequired": "Please enter the orderer name.",
+      "ordererNameMinLength": "Orderer name must be at least 3 characters.",
+      "ordererPhoneRequired": "Please enter a phone number.",
+      "ordererPhoneDigits": "Phone number must have at least 9 digits.",
+      "recipientNameRequired": "Please enter the recipient name.",
+      "recipientNameMinLength": "Recipient name must be at least 3 characters.",
+      "recipientPhoneRequired": "Please enter the recipient phone number.",
+      "recipientPhoneDigits": "Recipient phone must have at least 9 digits.",
+      "recipientProvinceRequired": "Please select the recipient province / city.",
+      "recipientWardRequired": "Please select the recipient ward / commune.",
+      "provinceRequired": "Please select province / city.",
+      "wardRequired": "Please select ward / commune.",
+      "agentProfileRequired": "Agent profile is missing. Please sign in again.",
+      "provinceBeforeWard": "Please select province / city first.",
+      "recipientProvinceBeforeWard": "Please select the recipient province / city first."
+    },
+    "alerts": {
+      "successTitle": "Success",
+      "successMessage": "Order {{orderNo}} has been created.",
+      "successMessageFallback": "The order was created successfully.",
+      "ok": "OK"
+    },
     "errors": {
       "loadMeta": "Unable to load order metadata.",
       "loadSeller": "Unable to identify seller.",
-      "loadAgentProfile": "Unable to identify current agent profile."
+      "loadAgentProfile": "Unable to identify current agent profile.",
+      "createFailed": "Could not create the order."
     }
   },
   "network": {

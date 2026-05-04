@@ -7,7 +7,7 @@ import { clearAllSession } from './secure-session';
 import { ensureSessionReadyForRequest } from './session-hydration';
 import { notifySessionInvalidated } from './session-invalidated';
 
-const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export class NetworkOfflineError extends Error {
   readonly code = 'NETWORK_OFFLINE' as const;

@@ -1,5 +1,5 @@
 export { ordersService } from './orders.service';
-export { mapOrderToRecentRow } from './orderDisplay';
+export { appendCurrency, mapOrderToRecentRow } from './orderDisplay';
 export { getOrderStatusPresentation } from './orderStatus';
 export type {
   OrderListItem,

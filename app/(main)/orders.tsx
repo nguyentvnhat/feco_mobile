@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getOrderStatusPresentation, ordersService } from '@/src/features/orders';
+import { appendCurrency, getOrderStatusPresentation, ordersService } from '@/src/features/orders';
 import type { OrderListItem, OrderStatusItem } from '@/src/features/orders';
 
 type StatusTab = {
@@ -254,7 +254,9 @@ export default function OrdersScreen() {
                   <View className="mt-4 flex-row items-end justify-between border-t border-slate-100 pt-3">
                     <View>
                       <Text className="text-sm text-slate-400">{t('orders.total')}</Text>
-                      <Text className="text-lg font-semibold text-slate-900">{order.net_amount}đ</Text>
+                      <Text className="text-lg font-semibold text-slate-900">
+                        {appendCurrency(order.net_amount, order.currency)}
+                      </Text>
                     </View>
                     <View className="flex-row items-center gap-2">
                       <View
