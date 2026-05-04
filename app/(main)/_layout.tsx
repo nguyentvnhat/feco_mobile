@@ -5,9 +5,11 @@ import React, { useEffect, useState } from 'react';
 
 import { authService } from '@/src/features/auth/auth.service';
 import { useAuth } from '@/src/features/auth';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const { token, isLoading } = useAuth();
+  const insets = useSafeAreaInsets();
   const [canAccessAgents, setCanAccessAgents] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -79,8 +81,8 @@ export default function TabLayout() {
           borderTopColor: '#E2E8F0',
           backgroundColor: '#FFFFFF',
           paddingTop: 8,
-          paddingBottom: 8,
-          height: 68,
+          paddingBottom: 8 + insets.bottom,
+          height: 68 + insets.bottom,
         },
         tabBarLabelStyle: {
           fontSize: 11,
