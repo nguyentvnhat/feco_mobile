@@ -1,10 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import RenderHTML from 'react-native-render-html';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import { authService } from '@/src/features/auth/auth.service';
 
 type PolicyItem = {
@@ -79,7 +78,7 @@ export default function CommissionPolicyScreen() {
         <View className="flex-row items-center border-b border-slate-200 bg-white px-3 py-3">
           <Pressable
             className="mr-2 h-10 w-10 items-center justify-center rounded-full active:bg-slate-100"
-            onPress={() => router.back()}>
+            onPress={() => router.replace('/(main)/account')}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#0f172a" />
           </Pressable>
           <Text className="text-lg font-semibold text-slate-900">Chính sách hoa hồng</Text>

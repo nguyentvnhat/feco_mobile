@@ -1,7 +1,7 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -152,6 +152,8 @@ export default function CreateOrderScreen() {
 
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const formScrollRef = useRef<ScrollView>(null);
+  const fieldYMapRef = useRef<Record<string, number>>({});
 
   const wardsForProvince = useMemo(() => {
     const selectedProvince = normalizeLocationCode(provinceCode);
@@ -167,8 +169,36 @@ export default function CreateOrderScreen() {
       (w) => normalizeLocationCode(w.province_code) === selectedProvince,
     );
   }, [wards, recipientProvinceCode]);
+
+  function handleQuantityChange(value: string) {
+    // Only allow digits for ordered quantity.
+    setQuantity(value.replace(/\D/g, ''));
+  }
+
+  function handlePhoneChange(value: string, setter: (next: string) => void) {
+    // Restrict phone inputs to digits only.
+    setter(value.replace(/\D/g, ''));
+  }
+
+  function registerFieldLayout(key: string, y: number) {
+    fieldYMapRef.current[key] = y;
+  }
+
+  function scrollToField(key: string) {
+    const y = fieldYMapRef.current[key];
+    if (typeof y !== 'number') return;
+    formScrollRef.current?.scrollTo({ y: Math.max(y - 16, 0), animated: true });
+  }
+
+  function setFieldErrorAndScroll(errorKey: string, message: string, scrollKey?: string) {
+    setFieldErrors({ [errorKey]: message });
+    requestAnimationFrame(() => {
+      scrollToField(scrollKey ?? errorKey);
+    });
+  }
+
   const quantityNumber = useMemo(() => {
-    const qty = Number.parseFloat(quantity.trim().replace(',', '.'));
+    const qty = Number.parseInt(quantity.trim(), 10);
     return Number.isFinite(qty) && qty > 0 ? qty : 0;
   }, [quantity]);
   const selectedProductUnitPrice = useMemo(() => extractNumericPrice(selectedProduct), [selectedProduct]);
@@ -292,72 +322,72 @@ export default function CreateOrderScreen() {
   async function handleSubmit() {
     setFieldErrors({});
     if (sellerUserId == null) {
-      setFieldErrors({ __session: t('createOrder.validation.sellerRequired') });
+      setFieldErrorAndScroll('__session', t('createOrder.validation.sellerRequired'), 'products');
       return;
     }
     if (!selectedProduct) {
-      setFieldErrors({ products: t('createOrder.validation.productRequired') });
+      setFieldErrorAndScroll('products', t('createOrder.validation.productRequired'));
       return;
     }
-    const qty = Number.parseFloat(quantity.trim().replace(',', '.'));
+    const qty = Number.parseInt(quantity.trim(), 10);
     if (!Number.isFinite(qty) || qty <= 0) {
-      setFieldErrors({ 'products.0.quantity': t('createOrder.validation.quantityMin') });
+      setFieldErrorAndScroll('products.0.quantity', t('createOrder.validation.quantityMin'));
       return;
     }
     if (!ordererName.trim()) {
-      setFieldErrors({ customer_name: t('createOrder.validation.ordererNameRequired') });
+      setFieldErrorAndScroll('customer_name', t('createOrder.validation.ordererNameRequired'));
       return;
     }
     if (ordererName.trim().length < 3) {
-      setFieldErrors({ customer_name: t('createOrder.validation.ordererNameMinLength') });
+      setFieldErrorAndScroll('customer_name', t('createOrder.validation.ordererNameMinLength'));
       return;
     }
     if (!ordererPhone.trim()) {
-      setFieldErrors({ customer_phone: t('createOrder.validation.ordererPhoneRequired') });
+      setFieldErrorAndScroll('customer_phone', t('createOrder.validation.ordererPhoneRequired'));
       return;
     }
     const ordererPhoneDigits = ordererPhone.replace(/\D/g, '');
     if (ordererPhoneDigits.length < 9) {
-      setFieldErrors({ customer_phone: t('createOrder.validation.ordererPhoneDigits') });
+      setFieldErrorAndScroll('customer_phone', t('createOrder.validation.ordererPhoneDigits'));
       return;
     }
     if (!isSameRecipient) {
       if (!recipientName.trim()) {
-        setFieldErrors({ customer_name: t('createOrder.validation.recipientNameRequired') });
+        setFieldErrorAndScroll('recipient_name', t('createOrder.validation.recipientNameRequired'));
         return;
       }
       if (recipientName.trim().length < 3) {
-        setFieldErrors({ customer_name: t('createOrder.validation.recipientNameMinLength') });
+        setFieldErrorAndScroll('recipient_name', t('createOrder.validation.recipientNameMinLength'));
         return;
       }
       if (!recipientPhone.trim()) {
-        setFieldErrors({ customer_phone: t('createOrder.validation.recipientPhoneRequired') });
+        setFieldErrorAndScroll('recipient_phone', t('createOrder.validation.recipientPhoneRequired'));
         return;
       }
       const recipientPhoneDigits = recipientPhone.replace(/\D/g, '');
       if (recipientPhoneDigits.length < 9) {
-        setFieldErrors({ customer_phone: t('createOrder.validation.recipientPhoneDigits') });
+        setFieldErrorAndScroll('recipient_phone', t('createOrder.validation.recipientPhoneDigits'));
         return;
       }
       if (!recipientProvinceCode) {
-        setFieldErrors({ customer_province_code: t('createOrder.validation.recipientProvinceRequired') });
+        setFieldErrorAndScroll('recipient_province_code', t('createOrder.validation.recipientProvinceRequired'));
         return;
       }
       if (!recipientWardCode) {
-        setFieldErrors({ customer_ward_code: t('createOrder.validation.recipientWardRequired') });
+        setFieldErrorAndScroll('recipient_ward_code', t('createOrder.validation.recipientWardRequired'));
         return;
       }
     }
     if (isSameRecipient && !provinceCode) {
-      setFieldErrors({ customer_province_code: t('createOrder.validation.provinceRequired') });
+      setFieldErrorAndScroll('customer_province_code', t('createOrder.validation.provinceRequired'));
       return;
     }
     if (isSameRecipient && !wardCode) {
-      setFieldErrors({ customer_ward_code: t('createOrder.validation.wardRequired') });
+      setFieldErrorAndScroll('customer_ward_code', t('createOrder.validation.wardRequired'));
       return;
     }
     if (agentProfileId == null) {
-      setFieldErrors({ __session: t('createOrder.validation.agentProfileRequired') });
+      setFieldErrorAndScroll('__session', t('createOrder.validation.agentProfileRequired'), 'products');
       return;
     }
 
@@ -392,7 +422,7 @@ export default function CreateOrderScreen() {
         ],
       });
       if (!res.success) {
-        setFieldErrors({ products: res.message || t('createOrder.errors.createFailed') });
+        setFieldErrorAndScroll('products', res.message || t('createOrder.errors.createFailed'));
         return;
       }
       const orderNo = (res.data?.order_no ?? '').trim();
@@ -416,6 +446,10 @@ export default function CreateOrderScreen() {
       }
       if (Object.keys(nextFieldErrors).length > 0) {
         setFieldErrors(nextFieldErrors);
+        requestAnimationFrame(() => {
+          const firstKey = Object.keys(nextFieldErrors)[0];
+          scrollToField(firstKey);
+        });
       } else {
         setFieldErrors({ __session: fallbackMessage });
       }
@@ -454,6 +488,7 @@ export default function CreateOrderScreen() {
         ) : (
           <>
             <ScrollView
+              ref={formScrollRef}
               className="flex-1"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
@@ -464,7 +499,11 @@ export default function CreateOrderScreen() {
                     <Text className="ml-2 text-base font-semibold text-green-600">{t('createOrder.productInfo')}</Text>
                   </View>
 
-                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.selectProduct')}</Text>
+                  <Text
+                    className="mb-2 text-xs font-medium text-slate-600"
+                    onLayout={(e) => registerFieldLayout('products', e.nativeEvent.layout.y)}>
+                    {t('createOrder.selectProduct')}
+                  </Text>
                   <Pressable
                     className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
@@ -510,20 +549,26 @@ export default function CreateOrderScreen() {
                     </View>
                   ) : null}
 
-                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.quantity')}</Text>
-                  <View className="mb-2 flex-row items-center rounded-lg border border-slate-200 bg-white px-3 py-3">
+                  <Text
+                    className="mb-2 text-xs font-medium text-slate-600"
+                    onLayout={(e) => registerFieldLayout('products.0.quantity', e.nativeEvent.layout.y)}>
+                    {t('createOrder.quantity')}
+                  </Text>
+                  <View
+                    className={`flex-row items-center rounded-lg border border-slate-200 bg-white px-3 py-3.5 ${
+                      pickFirstError(fieldErrors, 'products.0.quantity') ? 'mb-2' : 'mb-4'
+                    }`}>
                     <TextInput
-                      className="min-h-[44px] flex-1 text-base text-slate-900"
+                      className="flex-1 text-base text-slate-900"
                       value={quantity}
-                      onChangeText={setQuantity}
-                      keyboardType="decimal-pad"
+                      onChangeText={handleQuantityChange}
+                      keyboardType="number-pad"
                     />
                     <Text className="text-base text-slate-600">
                       {selectedProduct ? localizeUnitDisplay(selectedProduct.base_unit) : t('createOrder.unit')}
                     </Text>
                   </View>
-                  <Text
-                    className={`text-xs text-slate-500 ${pickFirstError(fieldErrors, 'products.0.quantity') ? 'mb-2' : 'mb-4'}`}>
+                  <Text className={`text-xs text-slate-500 ${pickFirstError(fieldErrors, 'products.0.quantity') ? 'mb-2' : 'mb-4'}`}>
                     {t('createOrder.unitPrice')}:{' '}
                     {selectedProductUnitPrice > 0 ? formatMoney(selectedProductUnitPrice) : t('createOrder.noPrice')}
                   </Text>
@@ -538,7 +583,11 @@ export default function CreateOrderScreen() {
                     <Text className="ml-2 text-base font-semibold text-green-600">{t('createOrder.shippingInfo')}</Text>
                   </View>
                   <Text className="mb-3 text-sm font-semibold text-slate-800">{t('createOrder.shippingAddress')}</Text>
-                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.ordererName')}</Text>
+                  <Text
+                    className="mb-2 text-xs font-medium text-slate-600"
+                    onLayout={(e) => registerFieldLayout('customer_name', e.nativeEvent.layout.y)}>
+                    {t('createOrder.ordererName')}
+                  </Text>
                   <TextInput
                     className={`rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900 ${pickFirstError(fieldErrors, 'customer_name') ? 'mb-2' : 'mb-4'}`}
                     placeholder={t('createOrder.ordererNamePlaceholder')}
@@ -550,13 +599,17 @@ export default function CreateOrderScreen() {
                     <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_name')}</Text>
                   ) : null}
 
-                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.ordererPhone')}</Text>
+                  <Text
+                    className="mb-2 text-xs font-medium text-slate-600"
+                    onLayout={(e) => registerFieldLayout('customer_phone', e.nativeEvent.layout.y)}>
+                    {t('createOrder.ordererPhone')}
+                  </Text>
                   <TextInput
                     className={`rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900 ${pickFirstError(fieldErrors, 'customer_phone') ? 'mb-2' : 'mb-4'}`}
                     placeholder={t('createOrder.phonePlaceholder')}
                     placeholderTextColor="#94a3b8"
                     value={ordererPhone}
-                    onChangeText={setOrdererPhone}
+                    onChangeText={(value) => handlePhoneChange(value, setOrdererPhone)}
                     keyboardType="phone-pad"
                   />
                   {pickFirstError(fieldErrors, 'customer_phone') ? (
@@ -565,7 +618,11 @@ export default function CreateOrderScreen() {
 
 
 
-                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.province')}</Text>
+                  <Text
+                    className="mb-2 text-xs font-medium text-slate-600"
+                    onLayout={(e) => registerFieldLayout('customer_province_code', e.nativeEvent.layout.y)}>
+                    {t('createOrder.province')}
+                  </Text>
                   <Pressable
                     className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
@@ -603,7 +660,11 @@ export default function CreateOrderScreen() {
                     </View>
                   ) : null}
 
-                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.ward')}</Text>
+                  <Text
+                    className="mb-2 text-xs font-medium text-slate-600"
+                    onLayout={(e) => registerFieldLayout('customer_ward_code', e.nativeEvent.layout.y)}>
+                    {t('createOrder.ward')}
+                  </Text>
                   <Pressable
                     className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                     onPress={() => {
@@ -695,7 +756,11 @@ export default function CreateOrderScreen() {
                   {!isSameRecipient ? (
                     <>
                       <Text className="mt-4 mb-3 text-sm font-semibold text-slate-800">{t('createOrder.recipientAddress')}</Text>
-                      <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.recipientName')}</Text>
+                      <Text
+                        className="mb-2 text-xs font-medium text-slate-600"
+                        onLayout={(e) => registerFieldLayout('recipient_name', e.nativeEvent.layout.y)}>
+                        {t('createOrder.recipientName')}
+                      </Text>
                       <TextInput
                         className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-3.5 text-base text-slate-900"
                         placeholder={t('createOrder.recipientNamePlaceholder')}
@@ -703,8 +768,13 @@ export default function CreateOrderScreen() {
                         value={recipientName}
                         onChangeText={setRecipientName}
                       />
+                      {pickFirstError(fieldErrors, 'recipient_name') ? (
+                        <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'recipient_name')}</Text>
+                      ) : null}
 
-                      <Text className="mb-2 text-xs font-medium text-slate-600">
+                      <Text
+                        className="mb-2 text-xs font-medium text-slate-600"
+                        onLayout={(e) => registerFieldLayout('recipient_phone', e.nativeEvent.layout.y)}>
                         {t('createOrder.recipientPhone')}
                       </Text>
                       <TextInput
@@ -712,11 +782,18 @@ export default function CreateOrderScreen() {
                         placeholder={t('createOrder.recipientPhonePlaceholder')}
                         placeholderTextColor="#94a3b8"
                         value={recipientPhone}
-                        onChangeText={setRecipientPhone}
+                        onChangeText={(value) => handlePhoneChange(value, setRecipientPhone)}
                         keyboardType="phone-pad"
                       />
+                      {pickFirstError(fieldErrors, 'recipient_phone') ? (
+                        <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'recipient_phone')}</Text>
+                      ) : null}
 
-                      <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.province')}</Text>
+                      <Text
+                        className="mb-2 text-xs font-medium text-slate-600"
+                        onLayout={(e) => registerFieldLayout('recipient_province_code', e.nativeEvent.layout.y)}>
+                        {t('createOrder.province')}
+                      </Text>
                       <Pressable
                         className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                         onPress={() => {
@@ -735,9 +812,9 @@ export default function CreateOrderScreen() {
                           color="#64748b"
                         />
                       </Pressable>
-                      {pickFirstError(fieldErrors, 'customer_province_code') ? (
+                      {pickFirstError(fieldErrors, 'recipient_province_code') ? (
                         <Text className="mb-4 text-xs text-red-600">
-                          {pickFirstError(fieldErrors, 'customer_province_code')}
+                          {pickFirstError(fieldErrors, 'recipient_province_code')}
                         </Text>
                       ) : null}
                       {isRecipientProvinceOpen ? (
@@ -756,20 +833,24 @@ export default function CreateOrderScreen() {
                         </View>
                       ) : null}
 
-                      <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.ward')}</Text>
+                      <Text
+                        className="mb-2 text-xs font-medium text-slate-600"
+                        onLayout={(e) => registerFieldLayout('recipient_ward_code', e.nativeEvent.layout.y)}>
+                        {t('createOrder.ward')}
+                      </Text>
                       <Pressable
                         className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
                         onPress={() => {
                           if (!recipientProvinceCode) {
                             setFieldErrors((prev) => ({
                               ...prev,
-                              customer_province_code: t('createOrder.validation.recipientProvinceBeforeWard'),
+                              recipient_province_code: t('createOrder.validation.recipientProvinceBeforeWard'),
                             }));
                             return;
                           }
                           setFieldErrors((prev) => {
                             const next = { ...prev };
-                            delete next.customer_province_code;
+                            delete next.recipient_province_code;
                             return next;
                           });
                           setIsRecipientWardOpen((prev) => !prev);
@@ -787,8 +868,8 @@ export default function CreateOrderScreen() {
                           color="#64748b"
                         />
                       </Pressable>
-                      {pickFirstError(fieldErrors, 'customer_ward_code') ? (
-                        <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'customer_ward_code')}</Text>
+                      {pickFirstError(fieldErrors, 'recipient_ward_code') ? (
+                        <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'recipient_ward_code')}</Text>
                       ) : null}
                       {isRecipientWardOpen ? (
                         <View className="mb-4 max-h-52 rounded-lg border border-slate-200 bg-slate-50">

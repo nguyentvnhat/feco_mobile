@@ -4,7 +4,7 @@
       "title": "FECO Internal",
       "subtitle": "Sign in to continue",
       "emailLabel": "Email",
-      "emailPlaceholder": "you@company.com",
+      "emailPlaceholder": "Enter your email",
       "passwordLabel": "Password",
       "passwordPlaceholder": "••••••••",
       "submit": "Sign In",

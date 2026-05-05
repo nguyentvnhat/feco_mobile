@@ -15,12 +15,12 @@ export function OfflineBanner() {
 
   return (
     <View
-      className="absolute left-0 right-0 bg-amber-700 px-4"
+      className="absolute left-0 right-0 bg-red-100 px-4"
       style={{ top: 0, zIndex: 9999, paddingTop: insets.top + 6, paddingBottom: 8 }}
       pointerEvents="none"
       accessibilityRole="alert"
       accessibilityLabel={t('network.offline')}>
-      <Text className="text-center text-sm font-semibold text-white">{t('network.offline')}</Text>
+      <Text className="text-center text-sm font-semibold text-red-700">{t('network.offline')}</Text>
     </View>
   );
 }
