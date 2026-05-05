@@ -91,6 +91,7 @@ export default function LoginScreen() {
                     emailError ? 'border-red-500' : 'border-slate-200'
                   }`}
                   placeholder={t('auth.login.emailPlaceholder')}
+                  autoFocus
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
