@@ -19,8 +19,9 @@ import type {
   CreateMetadataProduct,
   CreateMetadataProvince,
   CreateMetadataWard,
+  PreviewOrderSummary,
 } from '@/src/features/orders';
-import { ordersService } from '@/src/features/orders';
+import { appendCurrency, ordersService } from '@/src/features/orders';
 
 /** Ngày đặt theo lịch Việt Nam (không dùng UTC như toISOString). */
 function orderDateYmdVietnamNow() {
@@ -120,7 +121,6 @@ export default function CreateOrderScreen() {
   const [bootError, setBootError] = useState('');
   const [sellerUserId, setSellerUserId] = useState<number | null>(null);
   const [agentProfileId, setAgentProfileId] = useState<number | null>(null);
-  const [agentFullAddress, setAgentFullAddress] = useState('');
 
   const [products, setProducts] = useState<CreateMetadataProduct[]>([]);
   const [provinces, setProvinces] = useState<CreateMetadataProvince[]>([]);
@@ -152,8 +152,12 @@ export default function CreateOrderScreen() {
 
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [previewSummary, setPreviewSummary] = useState<PreviewOrderSummary | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
   const formScrollRef = useRef<ScrollView>(null);
   const fieldYMapRef = useRef<Record<string, number>>({});
+  const previewRoundRef = useRef(0);
 
   const wardsForProvince = useMemo(() => {
     const selectedProvince = normalizeLocationCode(provinceCode);
@@ -208,6 +212,10 @@ export default function CreateOrderScreen() {
   );
 
   function resetForm() {
+    previewRoundRef.current += 1;
+    setPreviewSummary(null);
+    setPreviewLoading(false);
+    setPreviewError('');
     setSelectedProduct(null);
     setQuantity('1');
     setOrdererName('');
@@ -252,8 +260,6 @@ export default function CreateOrderScreen() {
       }
       setSellerUserId(meRes.data.user.id);
       setAgentProfileId(meRes.data.agent.id);
-      const agentAddr = (meRes.data.agent.full_address ?? '').trim();
-      setAgentFullAddress(agentAddr);
       setProducts(metaRes.data?.products ?? []);
       setProvinces(metaRes.data?.provinces ?? []);
       setWards(metaRes.data?.wards ?? []);
@@ -280,9 +286,54 @@ export default function CreateOrderScreen() {
   }, [navigation]);
 
   useEffect(() => {
-    if (!isSameRecipient || !agentFullAddress.trim()) return;
-    setAddress((prev) => (prev.trim() ? prev : agentFullAddress.trim()));
-  }, [agentFullAddress, isSameRecipient]);
+    if (!selectedProduct || quantityNumber <= 0) {
+      previewRoundRef.current += 1;
+      setPreviewSummary(null);
+      setPreviewLoading(false);
+      setPreviewError('');
+      return;
+    }
+
+    const round = ++previewRoundRef.current;
+    const productId = selectedProduct.id;
+    const qty = quantityNumber;
+
+    setPreviewLoading(true);
+    setPreviewError('');
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await ordersService.previewOrder({
+            order_channel: 'agent_order',
+            products: [{ product_id: productId, quantity: qty }],
+          });
+          if (previewRoundRef.current !== round) return;
+          if (res.success && res.data?.summary) {
+            setPreviewSummary(res.data.summary);
+            setPreviewError('');
+          } else {
+            setPreviewSummary(null);
+            setPreviewError(res.message?.trim() || t('createOrder.errors.previewFailed'));
+          }
+        } catch (e) {
+          if (previewRoundRef.current !== round) return;
+          setPreviewSummary(null);
+          setPreviewError(e instanceof Error ? e.message : t('createOrder.errors.previewFailed'));
+        } finally {
+          if (previewRoundRef.current === round) {
+            setPreviewLoading(false);
+          }
+        }
+      })();
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      previewRoundRef.current += 1;
+      setPreviewLoading(false);
+    };
+  }, [selectedProduct, quantity, quantityNumber, t]);
 
   function pickProvince(p: CreateMetadataProvince) {
     setProvinceCode(p.code);
@@ -377,6 +428,10 @@ export default function CreateOrderScreen() {
         setFieldErrorAndScroll('recipient_ward_code', t('createOrder.validation.recipientWardRequired'));
         return;
       }
+      if (!recipientAddress.trim()) {
+        setFieldErrorAndScroll('recipient_address', t('createOrder.validation.streetAddressRequired'));
+        return;
+      }
     }
     if (isSameRecipient && !provinceCode) {
       setFieldErrorAndScroll('customer_province_code', t('createOrder.validation.provinceRequired'));
@@ -384,6 +439,10 @@ export default function CreateOrderScreen() {
     }
     if (isSameRecipient && !wardCode) {
       setFieldErrorAndScroll('customer_ward_code', t('createOrder.validation.wardRequired'));
+      return;
+    }
+    if (isSameRecipient && !address.trim()) {
+      setFieldErrorAndScroll('customer_address', t('createOrder.validation.streetAddressRequired'));
       return;
     }
     if (agentProfileId == null) {
@@ -399,10 +458,7 @@ export default function CreateOrderScreen() {
       const shippingWardCode = isSameRecipient ? wardCode : recipientWardCode;
       const machineCurrentDate = orderDateYmdVietnamNow();
       const trimmedLine = (isSameRecipient ? address : recipientAddress).trim();
-      const shippingAddressLine =
-        isSameRecipient && !trimmedLine && agentFullAddress.trim()
-          ? agentFullAddress.trim()
-          : trimmedLine;
+      const shippingAddressLine = trimmedLine;
       const res = await ordersService.createOrder({
         order_date: machineCurrentDate,
         seller_user_id: sellerUserId,
@@ -432,7 +488,13 @@ export default function CreateOrderScreen() {
           ? t('createOrder.alerts.successMessage', { orderNo })
           : t('createOrder.alerts.successMessageFallback'));
       Alert.alert(t('createOrder.alerts.successTitle'), successBody, [
-        { text: t('createOrder.alerts.ok'), onPress: () => router.back() },
+        {
+          text: t('createOrder.alerts.ok'),
+          onPress: () => {
+            resetForm();
+            router.back();
+          },
+        },
       ]);
     } catch (e) {
       const fallbackMessage = e instanceof Error ? e.message : t('createOrder.errors.createFailed');
@@ -718,7 +780,11 @@ export default function CreateOrderScreen() {
                     </View>
                   ) : null}
 
-                  <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.streetAddress')}</Text>
+                  <Text
+                    className="mb-2 text-xs font-medium text-slate-600"
+                    onLayout={(e) => registerFieldLayout('customer_address', e.nativeEvent.layout.y)}>
+                    {t('createOrder.streetAddress')}
+                  </Text>
                   <TextInput
                     className={`min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900 ${pickFirstError(fieldErrors, 'customer_address') ? 'mb-2' : 'mb-4'}`}
                     multiline
@@ -734,15 +800,7 @@ export default function CreateOrderScreen() {
 
                   <Pressable
                     className="mt-4 flex-row items-center"
-                    onPress={() => {
-                      setIsSameRecipient((prev) => {
-                        const next = !prev;
-                        if (next && !address.trim() && agentFullAddress.trim()) {
-                          setAddress(agentFullAddress.trim());
-                        }
-                        return next;
-                      });
-                    }}>
+                    onPress={() => setIsSameRecipient((prev) => !prev)}>
                     <MaterialCommunityIcons
                       name={isSameRecipient ? 'checkbox-marked' : 'checkbox-blank-outline'}
                       size={22}
@@ -893,9 +951,13 @@ export default function CreateOrderScreen() {
                   </View>
                       ) : null}
 
-                      <Text className="mb-2 text-xs font-medium text-slate-600">{t('createOrder.streetAddress')}</Text>
+                      <Text
+                        className="mb-2 text-xs font-medium text-slate-600"
+                        onLayout={(e) => registerFieldLayout('recipient_address', e.nativeEvent.layout.y)}>
+                        {t('createOrder.streetAddress')}
+                      </Text>
                       <TextInput
-                        className="mb-4 min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900"
+                        className={`min-h-[88px] rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-900 ${pickFirstError(fieldErrors, 'recipient_address') ? 'mb-2' : 'mb-4'}`}
                         multiline
                         placeholder={t('createOrder.streetAddressPlaceholder')}
                         placeholderTextColor="#94a3b8"
@@ -903,6 +965,9 @@ export default function CreateOrderScreen() {
                         value={recipientAddress}
                         onChangeText={setRecipientAddress}
                       />
+                      {pickFirstError(fieldErrors, 'recipient_address') ? (
+                        <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'recipient_address')}</Text>
+                      ) : null}
                     </>
                   ) : null}
 
@@ -918,8 +983,59 @@ export default function CreateOrderScreen() {
                   </View>
                   <View className="flex-row items-center justify-between">
                     <Text className="text-base font-bold text-slate-900">{t('createOrder.subtotal')}</Text>
-                    <Text className="text-base font-bold text-green-600">{formatMoney(estimatedSubtotal)}</Text>
+                    <View className="flex-row items-center gap-2">
+                      {previewLoading && !previewSummary ? (
+                        <ActivityIndicator size="small" color="#16a34a" />
+                      ) : null}
+                      <Text className="text-base font-bold text-green-600">
+                        {previewSummary
+                          ? appendCurrency(previewSummary.subtotal_amount, previewSummary.currency)
+                          : selectedProduct && quantityNumber > 0
+                            ? formatMoney(estimatedSubtotal)
+                            : t('createOrder.previewUnavailable')}
+                      </Text>
+                    </View>
                   </View>
+                  <View className="mt-1 flex-row items-center justify-between">
+                    <Text className="text-base text-slate-700">{t('createOrder.discount')}</Text>
+                    <View className="flex-row items-center gap-2">
+                      {previewLoading && !previewSummary ? (
+                        <ActivityIndicator size="small" color="#64748b" />
+                      ) : null}
+                      <Text className="text-base text-slate-800">
+                        {previewSummary
+                          ? appendCurrency(previewSummary.discount_amount, previewSummary.currency)
+                          : previewLoading
+                            ? t('createOrder.previewCalculating')
+                            : t('createOrder.previewUnavailable')}
+                      </Text>
+                    </View>
+                  </View>
+                  {previewError ? (
+                    <Text className="mt-1 text-right text-xs text-red-600">{previewError}</Text>
+                  ) : null}
+                  <View className="mt-1 flex-row items-center justify-between border-t border-slate-100 pt-2">
+                    <Text className="text-base font-bold text-slate-900">{t('createOrder.total')}</Text>
+                    <View className="flex-row items-center gap-2">
+                      {previewLoading && !previewSummary ? (
+                        <ActivityIndicator size="small" color="#16a34a" />
+                      ) : null}
+                      <Text className="text-base font-bold text-green-600">
+                        {previewSummary
+                          ? appendCurrency(previewSummary.net_amount, previewSummary.currency)
+                          : previewLoading
+                            ? t('createOrder.previewCalculating')
+                            : selectedProduct && quantityNumber > 0
+                              ? formatMoney(estimatedSubtotal)
+                              : t('createOrder.previewUnavailable')}
+                      </Text>
+                    </View>
+                  </View>
+                  {previewSummary?.currency?.trim() ? (
+                    <Text className="mt-1 text-right text-xs text-slate-500">
+                      {t('createOrder.currencyLabel', { code: previewSummary.currency.trim() })}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             </ScrollView>

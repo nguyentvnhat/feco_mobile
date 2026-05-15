@@ -30,11 +30,19 @@ export type OrderListItem = {
   products?: OrderListProduct[];
 };
 
+export type OrdersListMeta = {
+  page: number;
+  per_page: number;
+  total: number;
+  has_more: boolean;
+};
+
 export type ListOrdersApiResponse = {
   success: boolean;
   message: string;
   data: {
     orders: OrderListItem[];
+    meta?: OrdersListMeta;
   };
 };
 
@@ -65,6 +73,38 @@ export type CommissionItem = {
   currency?: string;
 };
 
+export type CommissionHistoryEntry = {
+  id: number;
+  order_id: number | null;
+  order_no: string | null;
+  amount: string;
+  rate_percent?: number | null;
+  basis_type?: string | null;
+  basis_value?: string | null;
+  settlement_status: string;
+  settlement_status_label_vi?: string;
+  created_at: string | null;
+};
+
+export type CommissionHistorySummary = {
+  total_commission: string;
+  pending_commission: string;
+  approved_commission: string;
+  paid_commission: string;
+  entry_count: number;
+};
+
+export type CommissionHistoryApiResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    period_month: string;
+    summary: CommissionHistorySummary;
+    entries: CommissionHistoryEntry[];
+  };
+};
+
+/** @deprecated Use CommissionHistoryEntry — grouped-by-order shape removed from API */
 export type CommissionHistoryOrder = {
   id: number;
   order_no: string;
@@ -74,14 +114,6 @@ export type CommissionHistoryOrder = {
   net_amount: string;
   currency?: string;
   commissions: CommissionItem[];
-};
-
-export type CommissionHistoryApiResponse = {
-  success: boolean;
-  message: string;
-  data: {
-    orders: CommissionHistoryOrder[];
-  };
 };
 
 export type OrderDetailProduct = {

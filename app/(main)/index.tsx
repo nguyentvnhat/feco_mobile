@@ -106,10 +106,10 @@ export default function HomeScreen() {
               <Text className="text-base font-semibold text-green-100">{t('home.monthRevenue')}</Text>
               <Text className="mt-1 text-2xl font-semibold tracking-tight text-white">{monthRevenue}</Text>
 
-              <View className="mt-5 border-t border-white/20 pt-4">
+              {/* <View className="mt-5 border-t border-white/20 pt-4">
                 <Text className="text-base font-semibold text-green-100">{t('home.monthCommission')}</Text>
                 <Text className="mt-1 text-2xl font-semibold tracking-tight text-white">{monthCommission}</Text>
-              </View>
+              </View> */}
             </View>
 
             <View style={{ marginTop: Spacings.xxl }}>

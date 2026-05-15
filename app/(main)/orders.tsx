@@ -2,10 +2,11 @@ import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -23,7 +24,7 @@ type StatusTab = {
   label: string;
 };
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 function localizeUnit(unit?: string | null) {
   const normalized = (unit || '').trim().toLowerCase();
@@ -32,24 +33,35 @@ function localizeUnit(unit?: string | null) {
   return unit || '';
 }
 
+function mergeOrderPages(previous: OrderListItem[], incoming: OrderListItem[]) {
+  if (incoming.length === 0) return previous;
+  const seen = new Set(previous.map((order) => order.id));
+  const appended = incoming.filter((order) => !seen.has(order.id));
+  return appended.length > 0 ? [...previous, ...appended] : previous;
+}
+
 export default function OrdersScreen() {
   const { t } = useTranslation();
   const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [tabs, setTabs] = useState<StatusTab[]>([{ key: 'all', label: t('orders.all') }]);
   const [activeTab, setActiveTab] = useState('all');
   const [navigatingOrderId, setNavigatingOrderId] = useState<number | null>(null);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const loadingMoreRef = useRef(false);
+  /** Simulator scroll (mouse wheel) often skips onMomentumScrollBegin — use scroll/drag instead. */
+  const userHasScrolledRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
       setActiveTab('all');
       setNavigatingOrderId(null);
-      setVisibleCount(PAGE_SIZE);
     }, []),
   );
 
@@ -60,30 +72,48 @@ export default function OrdersScreen() {
     return () => clearTimeout(timer);
   }, [searchText]);
 
+  const fetchOrdersPage = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      const keyword = debouncedSearch.trim();
+      const params = { limit: PAGE_SIZE, page: pageNum };
+      const ordersRes = keyword
+        ? await ordersService.search({ q: keyword, ...params })
+        : await ordersService.listMine(params);
+
+      if (!ordersRes.success) {
+        throw new Error(ordersRes.message || t('orders.errors.loadFailed'));
+      }
+
+      const rows = ordersRes.data?.orders ?? [];
+      const meta = ordersRes.data?.meta;
+
+      setOrders((prev) => (replace ? rows : mergeOrderPages(prev, rows)));
+      setPage(pageNum);
+      setHasMore(meta?.has_more ?? rows.length >= PAGE_SIZE);
+
+      return ordersRes;
+    },
+    [debouncedSearch, t],
+  );
+
   useEffect(() => {
     if (!isFocused) return;
     let cancelled = false;
 
-    async function loadOrders() {
+    async function loadInitial() {
       setLoading(true);
+      setLoadingMore(false);
+      loadingMoreRef.current = false;
       setError('');
-      try {
-        const keyword = debouncedSearch.trim();
-        const [ordersRes, statusesRes] = await Promise.all([
-          keyword ? ordersService.search({ q: keyword }) : ordersService.listMine(),
-          ordersService.statuses(),
-        ]);
-        if (cancelled) return;
-        if (!ordersRes.success) {
-          setError(ordersRes.message || t('orders.errors.loadFailed'));
-          setOrders([]);
-          setTabs([{ key: 'all', label: t('orders.all') }]);
-          return;
-        }
+      setPage(1);
+      setHasMore(false);
+      setOrders([]);
+      userHasScrolledRef.current = false;
 
-        const rows = ordersRes.data?.orders ?? [];
-        setOrders(rows);
-        setVisibleCount(PAGE_SIZE);
+      try {
+        const [, statusesRes] = await Promise.all([fetchOrdersPage(1, true), ordersService.statuses()]);
+        if (cancelled) return;
+
         const statusTabs: StatusTab[] =
           statusesRes.success && Array.isArray(statusesRes.data?.statuses)
             ? statusesRes.data.statuses.map((s: OrderStatusItem) => ({ key: s.value, label: s.label }))
@@ -94,36 +124,197 @@ export default function OrdersScreen() {
           setError(e instanceof Error ? e.message : t('orders.errors.loadFailed'));
           setOrders([]);
           setTabs([{ key: 'all', label: t('orders.all') }]);
-          setVisibleCount(PAGE_SIZE);
+          setHasMore(false);
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    void loadOrders();
+    void loadInitial();
     return () => {
       cancelled = true;
     };
-  }, [isFocused, debouncedSearch, t]);
+  }, [isFocused, debouncedSearch, fetchOrdersPage, t]);
 
   const filteredOrders = useMemo(() => {
     if (activeTab === 'all') return orders;
     return orders.filter((o) => o.order_status === activeTab);
   }, [orders, activeTab]);
 
-  const visibleOrders = useMemo(() => filteredOrders.slice(0, visibleCount), [filteredOrders, visibleCount]);
-  const hasMore = visibleCount < filteredOrders.length;
+  const handleLoadMore = useCallback(async () => {
+    if (loading || loadingMoreRef.current || !hasMore) return;
+    if (!userHasScrolledRef.current) return;
 
-  function handleListScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    if (loading || !hasMore) return;
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const threshold = 80;
-    const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - threshold;
-    if (isNearBottom) {
-      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredOrders.length));
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      await fetchOrdersPage(page + 1, false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('orders.errors.loadFailed'));
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
-  }
+  }, [fetchOrdersPage, hasMore, loading, page, t]);
+
+  const handleListScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+      if (contentOffset.y > 8) {
+        userHasScrolledRef.current = true;
+      }
+
+      const threshold = 100;
+      const nearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - threshold;
+      if (nearBottom) {
+        void handleLoadMore();
+      }
+    },
+    [handleLoadMore],
+  );
+
+  const renderOrderItem = useCallback(
+    ({ item: order }: { item: OrderListItem }) => {
+      const status = getOrderStatusPresentation(order.order_status, order.order_label_status);
+      const hasInvoiceFile = order.has_invoice_file === true;
+      const hasDeliveryReceipt = order.has_delivery_receipt_paths === true;
+      const code = order.order_no.startsWith('#') ? order.order_no : `#${order.order_no}`;
+      const customer = order.customer?.customer_name || t('orders.customerFallback');
+      const firstProduct = order.products?.[0];
+      const isNavigating = navigatingOrderId === order.id;
+
+      return (
+        <Pressable
+          className="relative mb-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5 active:opacity-95"
+          disabled={isNavigating}
+          onPress={() => {
+            setNavigatingOrderId(order.id);
+            router.push({
+              pathname: '/(main)/order-detail',
+              params: { id: String(order.id), source: 'orders' },
+            });
+          }}>
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1 pr-3">
+              <Text className="text-sm font-semibold tracking-wide text-slate-400">{code}</Text>
+              <Text className="mt-1 text-base font-semibold text-slate-900">{customer}</Text>
+            </View>
+            <View className="max-w-[45%] rounded-md px-3 py-1" style={{ backgroundColor: status.bgColor }}>
+              <Text
+                className="text-xs font-semibold"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ color: status.textColor }}>
+                {status.label}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-4 flex-row items-center rounded-xl bg-slate-50 px-3 py-3">
+            <View className="h-12 w-12 items-center justify-center rounded-md bg-white">
+              {firstProduct?.image_path ? (
+                <Image
+                  source={{ uri: firstProduct.image_path }}
+                  contentFit="cover"
+                  style={{ width: 48, height: 48, borderRadius: 8 }}
+                />
+              ) : (
+                <MaterialCommunityIcons name="package-variant-closed" size={24} color="#1e293b" />
+              )}
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-semibold text-slate-700">
+                {firstProduct?.product_name || `${t('orders.orderLabel')} ${code}`}
+              </Text>
+              <Text className="mt-0.5 text-sm text-slate-400">
+                {firstProduct
+                  ? `x ${firstProduct.quantity} ${localizeUnit(firstProduct.unit)}`.trim()
+                  : order.order_date
+                    ? new Date(order.order_date).toLocaleDateString('vi-VN')
+                    : '--'}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-4 flex-row items-end justify-between border-t border-slate-100 pt-3">
+            <View>
+              <Text className="text-sm text-slate-400">{t('orders.total')}</Text>
+              <Text className="text-lg font-semibold text-slate-900">
+                {appendCurrency(order.net_amount, order.currency)}
+              </Text>
+            </View>
+            <View className="flex-row items-center gap-2">
+              <View
+                className="flex-row items-center rounded-full px-3 py-1.5"
+                style={{ backgroundColor: hasInvoiceFile ? '#ECFDF5' : '#F1F5F9' }}>
+                <MaterialCommunityIcons
+                  name={hasInvoiceFile ? 'check-circle-outline' : 'clock-outline'}
+                  size={15}
+                  color={hasInvoiceFile ? '#22C55E' : '#64748B'}
+                />
+                <Text className="ml-1 text-sm font-semibold" style={{ color: hasInvoiceFile ? '#22C55E' : '#64748B' }}>
+                  {t('orders.invoice')}
+                </Text>
+              </View>
+              <View
+                className="flex-row items-center rounded-full px-3 py-1.5"
+                style={{ backgroundColor: hasDeliveryReceipt ? '#ECFDF5' : '#F1F5F9' }}>
+                <MaterialCommunityIcons
+                  name={hasDeliveryReceipt ? 'check-circle-outline' : 'clock-outline'}
+                  size={15}
+                  color={hasDeliveryReceipt ? '#22C55E' : '#64748B'}
+                />
+                <Text
+                  className="ml-1 text-sm font-semibold"
+                  style={{ color: hasDeliveryReceipt ? '#22C55E' : '#64748B' }}>
+                  {t('orders.receipt')}
+                </Text>
+              </View>
+            </View>
+          </View>
+          {isNavigating ? (
+            <View className="absolute inset-0 items-center justify-center rounded-2xl bg-white/60">
+              <ActivityIndicator size="small" color="#22c55e" />
+            </View>
+          ) : null}
+        </Pressable>
+      );
+    },
+    [navigatingOrderId, t],
+  );
+
+  const listFooter = useMemo(() => {
+    if (loadingMore) {
+      return (
+        <View className="items-center py-4">
+          <ActivityIndicator size="small" color="#22c55e" />
+        </View>
+      );
+    }
+    return <View className="h-4" />;
+  }, [loadingMore]);
+
+  const listEmpty = useMemo(() => {
+    if (loading) {
+      return (
+        <View className="items-center py-10">
+          <ActivityIndicator size="small" color="#22c55e" />
+        </View>
+      );
+    }
+    if (error) {
+      return <Text className="text-center text-sm text-red-600">{error}</Text>;
+    }
+    return (
+      <View className="items-center py-16">
+        <View className="h-28 w-28 items-center justify-center rounded-full bg-green-50">
+          <MaterialCommunityIcons name="inbox-outline" size={42} color="#22c55e" />
+        </View>
+        <Text className="mt-3 text-center text-sm font-medium text-slate-500">{t('orders.empty')}</Text>
+      </View>
+    );
+  }, [error, loading, t]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top', 'bottom']}>
@@ -151,10 +342,7 @@ export default function OrdersScreen() {
                   className={`rounded-xl px-4 py-2 ${
                     activeTab === tab.key ? 'border border-green-100 bg-green-50' : ''
                   }`}
-                  onPress={() => {
-                    setActiveTab(tab.key);
-                    setVisibleCount(PAGE_SIZE);
-                  }}>
+                  onPress={() => setActiveTab(tab.key)}>
                   <Text
                     className={`text-base font-semibold ${
                       activeTab === tab.key ? 'text-green-500' : 'text-slate-400'
@@ -167,144 +355,22 @@ export default function OrdersScreen() {
           </ScrollView>
         </View>
 
-        <ScrollView
+        <FlatList
           className="flex-1"
-          contentContainerClassName="px-4 pb-28 pt-4"
+          data={filteredOrders}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderOrderItem}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 112, flexGrow: 1 }}
+          onScrollBeginDrag={() => {
+            userHasScrolledRef.current = true;
+          }}
           onScroll={handleListScroll}
-          scrollEventThrottle={16}>
-          {loading ? (
-            <View className="items-center py-10">
-              <ActivityIndicator size="small" color="#22c55e" />
-            </View>
-          ) : error ? (
-            <Text className="text-center text-sm text-red-600">{error}</Text>
-          ) : filteredOrders.length === 0 ? (
-            <View className="items-center py-16">
-              <View className="h-28 w-28 items-center justify-center rounded-full bg-green-50">
-                <MaterialCommunityIcons name="inbox-outline" size={42} color="#22c55e" />
-              </View>
-              <Text className="mt-3 text-center text-sm font-medium text-slate-500">{t('orders.empty')}</Text>
-            </View>
-          ) : (
-            <>
-              {visibleOrders.map((order) => {
-              const status = getOrderStatusPresentation(order.order_status, order.order_label_status);
-              const hasInvoiceFile = order.has_invoice_file === true;
-              const hasDeliveryReceipt = order.has_delivery_receipt_paths === true;
-              const code = order.order_no.startsWith('#') ? order.order_no : `#${order.order_no}`;
-              const customer = order.customer?.customer_name || t('orders.customerFallback');
-              const firstProduct = order.products?.[0];
-              const isNavigating = navigatingOrderId === order.id;
-              return (
-                <Pressable
-                  key={order.id}
-                  className="relative mb-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5 active:opacity-95"
-                  disabled={isNavigating}
-                  onPress={() => {
-                    setNavigatingOrderId(order.id);
-                    router.push({
-                      pathname: '/(main)/order-detail',
-                      params: { id: String(order.id), source: 'orders' },
-                    });
-                  }}>
-                  <View className="flex-row items-start justify-between">
-                    <View className="flex-1 pr-3">
-                      <Text className="text-sm font-semibold tracking-wide text-slate-400">{code}</Text>
-                      <Text className="mt-1 text-base font-semibold text-slate-900">{customer}</Text>
-                    </View>
-                    <View
-                      className="max-w-[45%] rounded-md px-3 py-1"
-                      style={{ backgroundColor: status.bgColor }}>
-                      <Text
-                        className="text-xs font-semibold"
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                        style={{ color: status.textColor }}>
-                        {status.label}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View className="mt-4 flex-row items-center rounded-xl bg-slate-50 px-3 py-3">
-                    <View className="h-12 w-12 items-center justify-center rounded-md bg-white">
-                      {firstProduct?.image_path ? (
-                        <Image
-                          source={{ uri: firstProduct.image_path }}
-                          contentFit="cover"
-                          style={{ width: 48, height: 48, borderRadius: 8 }}
-                        />
-                      ) : (
-                        <MaterialCommunityIcons name="package-variant-closed" size={24} color="#1e293b" />
-                      )}
-                    </View>
-                    <View className="ml-3 flex-1">
-                      <Text className="text-base font-semibold text-slate-700">
-                        {firstProduct?.product_name || `${t('orders.orderLabel')} ${code}`}
-                      </Text>
-                      <Text className="mt-0.5 text-sm text-slate-400">
-                        {firstProduct
-                          ? `x ${firstProduct.quantity} ${localizeUnit(firstProduct.unit)}`.trim()
-                          : order.order_date
-                            ? new Date(order.order_date).toLocaleDateString('vi-VN')
-                            : '--'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View className="mt-4 flex-row items-end justify-between border-t border-slate-100 pt-3">
-                    <View>
-                      <Text className="text-sm text-slate-400">{t('orders.total')}</Text>
-                      <Text className="text-lg font-semibold text-slate-900">
-                        {appendCurrency(order.net_amount, order.currency)}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                      <View
-                        className="flex-row items-center rounded-full px-3 py-1.5"
-                        style={{ backgroundColor: hasInvoiceFile ? '#ECFDF5' : '#F1F5F9' }}>
-                        <MaterialCommunityIcons
-                          name={hasInvoiceFile ? 'check-circle-outline' : 'clock-outline'}
-                          size={15}
-                          color={hasInvoiceFile ? '#22C55E' : '#64748B'}
-                        />
-                        <Text
-                          className="ml-1 text-sm font-semibold"
-                          style={{ color: hasInvoiceFile ? '#22C55E' : '#64748B' }}>
-                          {t('orders.invoice')}
-                        </Text>
-                      </View>
-                      <View
-                        className="flex-row items-center rounded-full px-3 py-1.5"
-                        style={{ backgroundColor: hasDeliveryReceipt ? '#ECFDF5' : '#F1F5F9' }}>
-                        <MaterialCommunityIcons
-                          name={hasDeliveryReceipt ? 'check-circle-outline' : 'clock-outline'}
-                          size={15}
-                          color={hasDeliveryReceipt ? '#22C55E' : '#64748B'}
-                        />
-                        <Text
-                          className="ml-1 text-sm font-semibold"
-                          style={{ color: hasDeliveryReceipt ? '#22C55E' : '#64748B' }}>
-                          {t('orders.receipt')}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  {isNavigating ? (
-                    <View className="absolute inset-0 items-center justify-center rounded-2xl bg-white/60">
-                      <ActivityIndicator size="small" color="#22c55e" />
-                    </View>
-                  ) : null}
-                </Pressable>
-              );
-              })}
-              {hasMore ? (
-                <View className="items-center py-4">
-                  <ActivityIndicator size="small" color="#22c55e" />
-                </View>
-              ) : null}
-            </>
-          )}
-        </ScrollView>
+          scrollEventThrottle={16}
+          onEndReached={() => void handleLoadMore()}
+          onEndReachedThreshold={0.25}
+          ListEmptyComponent={listEmpty}
+          ListFooterComponent={hasMore || loadingMore ? listFooter : null}
+        />
 
         <Pressable
           className="absolute bottom-24 right-5 h-16 w-16 items-center justify-center rounded-full bg-green-500 shadow-lg shadow-green-400/40 active:bg-green-600"

@@ -5,21 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ordersService } from '@/src/features/orders';
-import type { OrderDetailData, OrderDetailProduct, OrderStatusItem } from '@/src/features/orders';
+import type { OrderDetailData, OrderDetailProduct } from '@/src/features/orders';
 
 function withCurrencySuffix(value?: string | null) {
   if (!value) return '--';
   const trimmed = value.trim();
   return trimmed.endsWith('đ') ? trimmed : `${trimmed}đ`;
-}
-
-function formatDateTime(iso: string | null | undefined) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const datePart = d.toLocaleDateString('vi-VN');
-  const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  return `${datePart} ${timePart}`;
 }
 
 function localizeUnit(unit?: string | null) {
@@ -34,7 +25,6 @@ export default function OrderDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderDetailData | null>(null);
-  const [statusSteps, setStatusSteps] = useState<OrderStatusItem[]>([]);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
 
   function handleBack() {
@@ -67,10 +57,7 @@ export default function OrderDetailScreen() {
       setLoading(true);
       setError('');
       try {
-        const [detailRes, statusesRes] = await Promise.all([
-          ordersService.detail(orderId),
-          ordersService.statuses(),
-        ]);
+        const detailRes = await ordersService.detail(orderId);
         if (cancelled) return;
         if (!detailRes.success) {
           setError(detailRes.message || 'Không tải được chi tiết đơn hàng.');
@@ -78,16 +65,10 @@ export default function OrderDetailScreen() {
           return;
         }
         setOrder(detailRes.data);
-        if (statusesRes.success) {
-          setStatusSteps(statusesRes.data?.statuses ?? []);
-        } else {
-          setStatusSteps([]);
-        }
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Không tải được chi tiết đơn hàng.');
           setOrder(null);
-          setStatusSteps([]);
         }
       } finally {
         if (!cancelled) {
@@ -125,22 +106,6 @@ export default function OrderDetailScreen() {
       .filter((part) => part.length > 0);
     return addressParts.join(', ');
   }, [order?.pickup?.address_line, order?.pickup?.ward_name, order?.pickup?.province_name]);
-  const timelineItems = useMemo(() => {
-    const currentStatus = (order?.order_status || '').trim();
-    const currentIndex = statusSteps.findIndex((s) => s.value === currentStatus);
-    const displayTime = formatDateTime(order?.order_date);
-    return statusSteps
-      .map((step, idx) => {
-      const active = currentIndex >= 0 ? idx <= currentIndex : step.value === currentStatus;
-      return {
-        id: step.value,
-        title: step.label,
-        time: active ? displayTime : '',
-        active,
-      };
-      })
-      .filter((step) => step.active);
-  }, [order?.order_status, order?.order_date, statusSteps]);
   const hasDiscount = useMemo(() => {
     const raw = (order?.discount_amount ?? '').replace(/\./g, '').replace(',', '.').trim();
     if (!raw) return false;
@@ -205,37 +170,6 @@ export default function OrderDetailScreen() {
                 <Text className="text-sm text-slate-400">Trạng thái</Text>
                 <Text className="text-base font-semibold text-slate-900">{order?.order_label_status || '--'}</Text>
               </View>
-            </View>
-          </View>
-
-          <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
-            <Text className="text-base font-semibold text-slate-900">TRẠNG THÁI ĐƠN HÀNG</Text>
-            <View className="mt-3">
-              {timelineItems.map((step, idx) => (
-                <View key={step.id} className="flex-row">
-                  <View className="mr-3 items-center">
-                    <View
-                      className={`h-6 w-6 items-center justify-center rounded-full ${
-                        step.active ? 'bg-green-500' : 'bg-slate-200'
-                      }`}>
-                      <Ionicons
-                        name={step.active ? 'checkmark' : 'ellipse'}
-                        size={step.active ? 14 : 10}
-                        color={step.active ? '#fff' : '#94a3b8'}
-                      />
-                    </View>
-                    {idx < timelineItems.length - 1 ? <View className="h-9 w-0.5 bg-slate-200" /> : null}
-                  </View>
-                  <View className="pb-3">
-                    <Text className={`text-base font-semibold ${step.active ? 'text-slate-900' : 'text-slate-300'}`}>
-                      {step.title}
-                    </Text>
-                    {step.time ? (
-                      <Text className={`text-sm ${step.active ? 'text-slate-500' : 'text-slate-300'}`}>{step.time}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              ))}
             </View>
           </View>
 

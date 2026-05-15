@@ -80,6 +80,11 @@
     "shippingFeeEstimate": "Phí vận chuyển dự kiến:",
     "shippingFeeToBeAgreed": "Thỏa thuận sau",
     "subtotal": "Tạm tính:",
+    "discount": "Chiết khấu:",
+    "total": "Tổng cộng:",
+    "previewCalculating": "Đang tính…",
+    "previewUnavailable": "—",
+    "currencyLabel": "Đơn vị tiền tệ: {{code}}",
     "confirm": "Xác Nhận Đặt Hàng",
     "moneyFormat": "{{value}} đ",
     "units": {
@@ -102,6 +107,7 @@
       "recipientWardRequired": "Vui lòng chọn phường / xã người nhận.",
       "provinceRequired": "Vui lòng chọn tỉnh / thành phố.",
       "wardRequired": "Vui lòng chọn phường / xã.",
+      "streetAddressRequired": "Vui lòng nhập số nhà và tên đường.",
       "agentProfileRequired": "Thiếu hồ sơ đại lý đăng nhập. Vui lòng đăng nhập lại.",
       "provinceBeforeWard": "Vui lòng chọn tỉnh / thành phố trước.",
       "recipientProvinceBeforeWard": "Vui lòng chọn tỉnh / thành phố người nhận trước."
@@ -116,7 +122,8 @@
       "loadMeta": "Không tải được dữ liệu đơn hàng.",
       "loadSeller": "Không xác định được người bán (đại lý).",
       "loadAgentProfile": "Không xác định được hồ sơ đại lý đang đăng nhập.",
-      "createFailed": "Tạo đơn thất bại."
+      "createFailed": "Tạo đơn thất bại.",
+      "previewFailed": "Không tính được chiết khấu (preview)."
     }
   },
   "network": {

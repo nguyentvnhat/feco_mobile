@@ -80,6 +80,11 @@
     "shippingFeeEstimate": "Estimated shipping fee:",
     "shippingFeeToBeAgreed": "To be agreed",
     "subtotal": "Subtotal:",
+    "discount": "Discount:",
+    "total": "Total:",
+    "previewCalculating": "Calculating…",
+    "previewUnavailable": "—",
+    "currencyLabel": "Currency: {{code}}",
     "confirm": "Confirm Order",
     "moneyFormat": "{{value}} VND",
     "units": {
@@ -102,6 +107,7 @@
       "recipientWardRequired": "Please select the recipient ward / commune.",
       "provinceRequired": "Please select province / city.",
       "wardRequired": "Please select ward / commune.",
+      "streetAddressRequired": "Please enter street number and name.",
       "agentProfileRequired": "Agent profile is missing. Please sign in again.",
       "provinceBeforeWard": "Please select province / city first.",
       "recipientProvinceBeforeWard": "Please select the recipient province / city first."
@@ -116,7 +122,8 @@
       "loadMeta": "Unable to load order metadata.",
       "loadSeller": "Unable to identify seller.",
       "loadAgentProfile": "Unable to identify current agent profile.",
-      "createFailed": "Could not create the order."
+      "createFailed": "Could not create the order.",
+      "previewFailed": "Could not calculate discount (preview)."
     }
   },
   "network": {

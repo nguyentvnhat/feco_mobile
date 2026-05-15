@@ -23,11 +23,11 @@ export default function TabLayout() {
       try {
         const res = await authService.me();
         if (cancelled) return;
-        const agentTypeCode = (res.data?.agent?.agent_type?.code ?? '').trim().toLowerCase();
-        setCanAccessAgents(agentTypeCode !== 'distributor');
+        const showAgentsTab = res.data?.agent?.has_agent_children === true;
+        setCanAccessAgents(showAgentsTab);
       } catch {
         if (!cancelled) {
-          setCanAccessAgents(true);
+          setCanAccessAgents(false);
         }
       }
     }

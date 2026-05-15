@@ -40,6 +40,8 @@ export type MeResponse = {
       /** Tổng hoa hồng tháng hiện tại (commission_entries theo đơn trong tháng) */
       month_commission?: string | null;
       currency?: string | null;
+      /** true nếu đại lý có đại lý con — dùng để hiện tab Đại lý trên app */
+      has_agent_children?: boolean;
       agent_commission_policy?: Array<{
         id: number;
         policy_name?: string | null;

@@ -7,6 +7,8 @@ export type {
   OrderStatusesApiResponse,
   OrderStatusItem,
   CommissionHistoryApiResponse,
+  CommissionHistoryEntry,
+  CommissionHistorySummary,
   CommissionHistoryOrder,
   CommissionItem,
   OrderDetailApiResponse,
@@ -20,5 +22,8 @@ export type {
   CreateMetadataProvince,
   CreateMetadataWard,
   CreateOrderMetadataResponse,
+  PreviewOrderApiResponse,
+  PreviewOrderPayload,
+  PreviewOrderSummary,
   StoreOrderPayload,
 } from './orderCreate.types';

@@ -59,3 +59,27 @@ export type StoreOrderApiResponse = {
     [key: string]: unknown;
   };
 };
+
+export type PreviewOrderPayload = {
+  order_channel: 'direct_sale' | 'agent_order' | 'internal_sale';
+  products: { product_id: number; quantity: number }[];
+};
+
+export type PreviewOrderSummary = {
+  subtotal_amount: string;
+  discount_amount: string;
+  net_amount: string;
+  currency?: string;
+};
+
+export type PreviewOrderApiResponse = {
+  success: boolean;
+  message: string;
+  data?: {
+    summary: PreviewOrderSummary;
+    items?: unknown[];
+    applied_tiers?: unknown[];
+    monthly_context?: unknown;
+    policy?: unknown;
+  };
+};
