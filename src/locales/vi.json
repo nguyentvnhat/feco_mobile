@@ -3,14 +3,14 @@
     "login": {
       "title": "FECO Nội bộ",
       "subtitle": "Đăng nhập để tiếp tục",
-      "emailLabel": "Email",
-      "emailPlaceholder": "Nhập email của bạn",
+      "loginLabel": "Tên đăng nhập",
+      "loginPlaceholder": "Nhập email hoặc số điện thoại",
       "passwordLabel": "Mật khẩu",
       "passwordPlaceholder": "••••••••",
       "submit": "Đăng nhập",
       "internalOnly": "Chỉ dành cho truy cập nội bộ",
       "errors": {
-        "emailRequired": "Email là bắt buộc",
+        "loginRequired": "Tên đăng nhập là bắt buộc",
         "passwordRequired": "Mật khẩu là bắt buộc",
         "signInFailed": "Đăng nhập thất bại. Vui lòng thử lại.",
         "unknown": "Có lỗi xảy ra. Vui lòng thử lại."

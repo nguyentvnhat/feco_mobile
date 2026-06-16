@@ -3,14 +3,14 @@
     "login": {
       "title": "FECO Internal",
       "subtitle": "Sign in to continue",
-      "emailLabel": "Email",
-      "emailPlaceholder": "Enter your email",
+      "loginLabel": "Username",
+      "loginPlaceholder": "Enter email or phone number",
       "passwordLabel": "Password",
       "passwordPlaceholder": "••••••••",
       "submit": "Sign In",
       "internalOnly": "Internal access only",
       "errors": {
-        "emailRequired": "Email is required",
+        "loginRequired": "Username is required",
         "passwordRequired": "Password is required",
         "signInFailed": "Sign in failed. Please try again.",
         "unknown": "Something went wrong. Please try again."

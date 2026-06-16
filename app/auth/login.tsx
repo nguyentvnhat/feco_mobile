@@ -18,21 +18,21 @@ import { authService, useAuth } from '@/src/features/auth';
 export default function LoginScreen() {
   const { setSession } = useAuth();
   const { t } = useTranslation();
-  const [email, setEmail] = useState('');
+  const [loginInput, setLoginInput] = useState('');
   const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [loginError, setLoginError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleSignIn() {
-    setEmailError('');
+    setLoginError('');
     setPasswordError('');
     setFormError('');
 
     let valid = true;
-    if (!email.trim()) {
-      setEmailError(t('auth.login.errors.emailRequired'));
+    if (!loginInput.trim()) {
+      setLoginError(t('auth.login.errors.loginRequired'));
       valid = false;
     }
     if (!password) {
@@ -44,7 +44,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const response = await authService.login({
-        login: email.trim(),
+        login: loginInput.trim(),
         password,
       });
 
@@ -84,26 +84,26 @@ export default function LoginScreen() {
             <View className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5">
               <View>
                 <Text className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  {t('auth.login.emailLabel')}
+                  {t('auth.login.loginLabel')}
                 </Text>
                 <TextInput
                   className={`rounded-lg border bg-white px-3 py-3 text-base text-slate-900 placeholder:text-slate-400 ${
-                    emailError ? 'border-red-500' : 'border-slate-200'
+                    loginError ? 'border-red-500' : 'border-slate-200'
                   }`}
-                  placeholder={t('auth.login.emailPlaceholder')}
+                  placeholder={t('auth.login.loginPlaceholder')}
                   autoFocus
-                  keyboardType="email-address"
+                  keyboardType="default"
                   autoCapitalize="none"
                   autoCorrect={false}
                   editable={!loading}
-                  value={email}
+                  value={loginInput}
                   onChangeText={(t) => {
-                    setEmail(t);
-                    if (emailError) setEmailError('');
+                    setLoginInput(t);
+                    if (loginError) setLoginError('');
                   }}
                 />
-                {emailError ? (
-                  <Text className="mt-1.5 text-sm text-red-600">{emailError}</Text>
+                {loginError ? (
+                  <Text className="mt-1.5 text-sm text-red-600">{loginError}</Text>
                 ) : null}
               </View>
 
