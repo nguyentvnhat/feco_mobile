@@ -136,18 +136,20 @@ export default function CommissionHistoryScreen() {
   const params = useLocalSearchParams<{ source?: string | string[] }>();
   const monthOptions = useMemo(() => buildMonthOptions(MONTH_FILTER_COUNT), []);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentPeriodMonth);
+  const [viewAll, setViewAll] = useState(false);
   const [isMonthOpen, setIsMonthOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [periodMonth, setPeriodMonth] = useState('');
+  const [periodMonth, setPeriodMonth] = useState<string | null>('');
   const [summary, setSummary] = useState<CommissionHistorySummary | null>(null);
   const [rows, setRows] = useState<RewardRow[]>([]);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
 
   const selectedMonthLabel = useMemo(() => {
+    if (viewAll) return 'Tất cả';
     const found = monthOptions.find((item) => item.value === selectedMonth);
     return found?.label ?? formatPeriodMonth(selectedMonth);
-  }, [monthOptions, selectedMonth]);
+  }, [monthOptions, selectedMonth, viewAll]);
 
   function handleBack() {
     if (source === 'home') {
@@ -173,7 +175,9 @@ export default function CommissionHistoryScreen() {
       setError('');
       setIsMonthOpen(false);
       try {
-        const res = await ordersService.historyCommission({ month: selectedMonth });
+        const res = await ordersService.historyCommission(
+          viewAll ? { all: true } : { month: selectedMonth },
+        );
         if (cancelled) return;
         if (!res.success) {
           setError(res.message || 'Không tải được lịch sử hoa hồng.');
@@ -183,7 +187,7 @@ export default function CommissionHistoryScreen() {
           return;
         }
 
-        setPeriodMonth(res.data?.period_month ?? selectedMonth);
+        setPeriodMonth(res.data?.period_month ?? (viewAll ? null : selectedMonth));
         setSummary(res.data?.summary ?? null);
         setRows((res.data?.entries ?? []).map(mapEntryToRow));
       } catch (e) {
@@ -204,14 +208,18 @@ export default function CommissionHistoryScreen() {
     return () => {
       cancelled = true;
     };
-  }, [selectedMonth]);
+  }, [selectedMonth, viewAll]);
 
   function pickMonth(value: string) {
     setSelectedMonth(value);
+    setViewAll(false);
     setIsMonthOpen(false);
   }
 
-  const periodLabel = useMemo(() => formatPeriodMonth(periodMonth), [periodMonth]);
+  const periodLabel = useMemo(
+    () => (viewAll ? 'Tất cả thời gian' : formatPeriodMonth(periodMonth)),
+    [periodMonth, viewAll],
+  );
   const summaryBreakdown = useMemo(
     () =>
       summary
@@ -237,6 +245,15 @@ export default function CommissionHistoryScreen() {
         </View>
 
         <ScrollView className="flex-1" contentContainerClassName="px-4 pb-6 pt-4">
+          <Pressable
+            className={`mb-2 self-start rounded-md px-3 py-1.5 ${
+              viewAll ? 'bg-green-100' : 'bg-slate-100 active:bg-slate-200'
+            }`}
+            onPress={() => setViewAll(true)}>
+            <Text className={`text-sm font-semibold ${viewAll ? 'text-green-700' : 'text-slate-700'}`}>
+              Xem tất cả
+            </Text>
+          </Pressable>
           <Text className="mb-2 text-xs font-medium text-slate-600">Chọn tháng</Text>
           <Pressable
             className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"

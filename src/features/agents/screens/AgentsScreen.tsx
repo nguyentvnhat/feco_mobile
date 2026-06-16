@@ -41,6 +41,21 @@ function withCurrencySuffix(value?: string | null, currency?: string | null) {
   return normalizedCurrency ? `${trimmed}${normalizedCurrency}` : `${trimmed}đ`;
 }
 
+function getOrderDaysAgoLabel(latestOrderAt?: string | null) {
+  const raw = (latestOrderAt || '').trim();
+  if (!raw) return null;
+
+  const latestAt = new Date(raw);
+  const latestMs = latestAt.getTime();
+  if (!Number.isFinite(latestMs)) return null;
+
+  const diffHours = (Date.now() - latestMs) / (1000 * 60 * 60);
+  if (diffHours <= 24) return null;
+
+  const days = Math.max(1, Math.round(diffHours / 24));
+  return `Đơn hàng cách đây ${days} ngày`;
+}
+
 export function AgentsScreen() {
   const [activeTab, setActiveTab] = useState<StatusTab['key']>('all');
   const [loading, setLoading] = useState(true);
@@ -151,7 +166,10 @@ export function AgentsScreen() {
               </Text>
             </View>
           ) : (
-            filteredAgents.map((agent) => (
+            filteredAgents.map((agent) => {
+              const orderDaysAgoLabel = getOrderDaysAgoLabel(agent.latest_order_at);
+
+              return (
               <View key={agent.id} className="mb-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
                 <View className="flex-row items-start justify-between">
                   <Text className="flex-1 text-base font-semibold text-slate-900">{agent.name || 'Đại lý'}</Text>
@@ -181,9 +199,15 @@ export function AgentsScreen() {
                   <Text className="mt-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
                     Số đơn: {agent.order_sold_count ?? 0}
                   </Text>
+                  {orderDaysAgoLabel ? (
+                    <Text className="mt-1 text-xs font-medium text-amber-600">
+                      {orderDaysAgoLabel}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
-            ))
+            );
+            })
           )}
 
         </ScrollView>

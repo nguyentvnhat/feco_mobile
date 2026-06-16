@@ -83,3 +83,28 @@ export type PreviewOrderApiResponse = {
     policy?: unknown;
   };
 };
+
+export type CloneOrderTemplatePayload = {
+  order_channel: 'direct_sale' | 'agent_order' | 'internal_sale';
+  customer_name: string;
+  customer_phone: string;
+  customer_address?: string | null;
+  customer_province_code: string;
+  customer_ward_code: string;
+  products: {
+    product_id: number;
+    quantity: number;
+  }[];
+};
+
+export type CloneOrderTemplateApiResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    source_order: {
+      id: number;
+      order_no: string;
+    };
+    clone_payload: CloneOrderTemplatePayload;
+  };
+};

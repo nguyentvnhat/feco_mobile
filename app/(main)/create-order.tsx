@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { authService } from '@/src/features/auth/auth.service';
 import type {
+  CloneOrderTemplatePayload,
   CreateMetadataProduct,
   CreateMetadataProvince,
   CreateMetadataWard,
@@ -96,6 +97,7 @@ const defaultTabBarStyle = {
 
 export default function CreateOrderScreen() {
   const { t, i18n } = useTranslation();
+  const params = useLocalSearchParams<{ clone_payload?: string | string[]; clone_source_order_no?: string | string[] }>();
   const insets = useSafeAreaInsets();
 
   const formatMoney = useCallback(
@@ -158,6 +160,24 @@ export default function CreateOrderScreen() {
   const formScrollRef = useRef<ScrollView>(null);
   const fieldYMapRef = useRef<Record<string, number>>({});
   const previewRoundRef = useRef(0);
+  const hasAppliedCloneRef = useRef(false);
+
+  const cloneSourceOrderNo = useMemo(() => {
+    const raw = Array.isArray(params.clone_source_order_no) ? params.clone_source_order_no[0] : params.clone_source_order_no;
+    return (raw || '').trim();
+  }, [params.clone_source_order_no]);
+
+  const clonePayload = useMemo<CloneOrderTemplatePayload | null>(() => {
+    const raw = Array.isArray(params.clone_payload) ? params.clone_payload[0] : params.clone_payload;
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as CloneOrderTemplatePayload;
+      if (!parsed || !Array.isArray(parsed.products)) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }, [params.clone_payload]);
 
   const wardsForProvince = useMemo(() => {
     const selectedProvince = normalizeLocationCode(provinceCode);
@@ -263,12 +283,35 @@ export default function CreateOrderScreen() {
       setProducts(metaRes.data?.products ?? []);
       setProvinces(metaRes.data?.provinces ?? []);
       setWards(metaRes.data?.wards ?? []);
+
+      if (!hasAppliedCloneRef.current && clonePayload) {
+        const firstProduct = clonePayload.products[0];
+        const matchedProduct = firstProduct
+          ? (metaRes.data?.products ?? []).find((p) => p.id === firstProduct.product_id) ?? null
+          : null;
+        const province = (metaRes.data?.provinces ?? []).find((p) => p.code === clonePayload.customer_province_code);
+        const ward = (metaRes.data?.wards ?? []).find((w) => w.code === clonePayload.customer_ward_code);
+
+        setSelectedProduct(matchedProduct);
+        setQuantity(String(Math.max(1, Math.round(firstProduct?.quantity ?? 1))));
+        setOrdererName(clonePayload.customer_name || '');
+        setOrdererPhone(clonePayload.customer_phone || '');
+        setIsSameRecipient(true);
+        setProvinceCode(clonePayload.customer_province_code || '');
+        setProvinceLabel(province?.name || province?.label || clonePayload.customer_province_code || '');
+        setWardCode(clonePayload.customer_ward_code || '');
+        setWardLabel(ward?.name || ward?.label || clonePayload.customer_ward_code || '');
+        setAddress(clonePayload.customer_address || '');
+        setFieldErrors({});
+
+        hasAppliedCloneRef.current = true;
+      }
     } catch (e) {
       setBootError(e instanceof Error ? e.message : t('createOrder.errors.loadMeta'));
     } finally {
       setBootLoading(false);
     }
-  }, [t]);
+  }, [clonePayload, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -478,7 +521,10 @@ export default function CreateOrderScreen() {
         ],
       });
       if (!res.success) {
-        setFieldErrorAndScroll('products', res.message || t('createOrder.errors.createFailed'));
+        Alert.alert(
+          t('createOrder.errors.createFailed'),
+          res.message || t('createOrder.errors.createFailed'),
+        );
         return;
       }
       const orderNo = (res.data?.order_no ?? '').trim();
@@ -513,7 +559,7 @@ export default function CreateOrderScreen() {
           scrollToField(firstKey);
         });
       } else {
-        setFieldErrors({ __session: fallbackMessage });
+        Alert.alert(t('createOrder.errors.createFailed'), fallbackMessage);
       }
     } finally {
       setSubmitting(false);
@@ -555,6 +601,11 @@ export default function CreateOrderScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
               <View className="px-4 pt-4">
+                {cloneSourceOrderNo ? (
+                  <View className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <Text className="text-xs text-emerald-700">Đang đặt lại từ đơn {cloneSourceOrderNo}</Text>
+                  </View>
+                ) : null}
                 <View className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm shadow-slate-900/5">
                   <View className="mb-4 flex-row items-center">
                     <MaterialCommunityIcons name="cube-outline" size={22} color="#16a34a" />

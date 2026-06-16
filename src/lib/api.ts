@@ -171,4 +171,10 @@ export const api = {
     const response = await apiClient.post<T>(normalizedPath, body !== undefined ? body : {});
     return response.data;
   },
+
+  async delete<T>(path: string) {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const response = await apiClient.delete<T>(normalizedPath);
+    return response.data;
+  },
 };

@@ -11,6 +11,7 @@ export type {
   CommissionHistorySummary,
   CommissionHistoryOrder,
   CommissionItem,
+  DestroyOrderApiResponse,
   OrderDetailApiResponse,
   OrderDetailData,
   OrderDetailProduct,
@@ -18,6 +19,8 @@ export type {
 export type { RecentOrderRow } from './orderDisplay';
 export type { OrderStatusPresentation } from './orderStatus';
 export type {
+  CloneOrderTemplateApiResponse,
+  CloneOrderTemplatePayload,
   CreateMetadataProduct,
   CreateMetadataProvince,
   CreateMetadataWard,

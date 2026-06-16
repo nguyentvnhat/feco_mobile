@@ -8,6 +8,7 @@ export type ChildAgent = {
   status?: string | null;
   order_sold_count?: number | null;
   total_revenue?: string | null;
+  latest_order_at?: string | null;
   currency?: string | null;
 };
 

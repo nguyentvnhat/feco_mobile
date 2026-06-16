@@ -1,6 +1,7 @@
 import { api } from '@/src/lib/api';
 
 import type {
+  CloneOrderTemplateApiResponse,
   CreateOrderMetadataResponse,
   PreviewOrderApiResponse,
   PreviewOrderPayload,
@@ -9,6 +10,7 @@ import type {
 } from './orderCreate.types';
 import type {
   CommissionHistoryApiResponse,
+  DestroyOrderApiResponse,
   ListOrdersApiResponse,
   OrderDetailApiResponse,
   OrderStatusesApiResponse,
@@ -36,6 +38,7 @@ export const ordersService = {
 
   historyCommission(params?: {
     month?: string;
+    all?: boolean;
     status?: 'pending' | 'approved' | 'paid' | 'rejected';
     limit?: number;
   }) {
@@ -44,6 +47,14 @@ export const ordersService = {
 
   detail(orderId: number | string) {
     return api.get<OrderDetailApiResponse>(`/orders/${orderId}`);
+  },
+
+  cancelOrder(orderId: number | string) {
+    return api.post<DestroyOrderApiResponse>(`/orders/${orderId}/cancel`);
+  },
+
+  cloneTemplate(orderId: number | string) {
+    return api.post<CloneOrderTemplateApiResponse>(`/orders/${orderId}/clone-template`);
   },
 
   fetchCreateMetadata() {

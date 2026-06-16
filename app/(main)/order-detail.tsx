@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ordersService } from '@/src/features/orders';
 import type { OrderDetailData, OrderDetailProduct } from '@/src/features/orders';
@@ -23,6 +23,8 @@ function localizeUnit(unit?: string | null) {
 export default function OrderDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[]; source?: string | string[] }>();
   const [loading, setLoading] = useState(true);
+  const [reorderLoading, setReorderLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderDetailData | null>(null);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
@@ -112,6 +114,80 @@ export default function OrderDetailScreen() {
     const parsed = Number(raw);
     return Number.isFinite(parsed) && parsed > 0;
   }, [order?.discount_amount]);
+  const normalizedOrderStatus = (order?.order_status || '').trim().toLowerCase();
+  const hideCancelButton = normalizedOrderStatus === 'cancelled' || normalizedOrderStatus === 'returned';
+
+  async function handleReorder() {
+    const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
+    if (!orderId || reorderLoading) return;
+
+    setReorderLoading(true);
+    try {
+      const res = await ordersService.cloneTemplate(orderId);
+      if (!res.success || !res.data?.clone_payload) {
+        Alert.alert('Không thể đặt lại', res.message || 'Không lấy được dữ liệu đơn hàng để đặt lại.');
+        return;
+      }
+
+      router.push({
+        pathname: '/(main)/create-order',
+        params: {
+          clone_payload: JSON.stringify(res.data.clone_payload),
+          clone_source_order_no: res.data.source_order?.order_no || '',
+        },
+      });
+    } catch (e) {
+      Alert.alert(
+        'Không thể đặt lại',
+        e instanceof Error ? e.message : 'Không lấy được dữ liệu đơn hàng để đặt lại.',
+      );
+    } finally {
+      setReorderLoading(false);
+    }
+  }
+
+  async function executeCancelOrder() {
+    const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
+    if (!orderId || cancelLoading) return;
+
+    setCancelLoading(true);
+    try {
+      const res = await ordersService.cancelOrder(orderId);
+      if (!res.success) {
+        Alert.alert('Không thể huỷ đơn', res.message || 'Không thể huỷ đơn hàng lúc này.');
+        return;
+      }
+
+      Alert.alert('Huỷ đơn thành công', res.message || 'Đơn hàng đã được huỷ.', [
+        {
+          text: 'OK',
+          onPress: () => router.replace('/(main)/orders'),
+        },
+      ]);
+    } catch (e) {
+      Alert.alert('Không thể huỷ đơn', e instanceof Error ? e.message : 'Không thể huỷ đơn hàng lúc này.');
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
+  function handleCancelOrder() {
+    if (!order || cancelLoading) return;
+
+    const orderNo = order.order_no || '--';
+    if (normalizedOrderStatus === 'new') {
+      Alert.alert('Xác nhận huỷ đơn', `Bạn có chắc muốn huỷ đơn ${orderNo}?`, [
+        { text: 'Không', style: 'cancel' },
+        { text: 'Huỷ đơn', style: 'destructive', onPress: () => void executeCancelOrder() },
+      ]);
+      return;
+    }
+
+    Alert.alert(
+      'Không thể huỷ đơn',
+      `Bạn không thể huỷ đơn ${orderNo}. Vui lòng liên hệ Quản trị để được hỗ trợ`,
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top', 'bottom']}>
@@ -257,17 +333,34 @@ export default function OrderDetailScreen() {
           </View>
         </ScrollView>
 
-        {/* <View className="border-t border-slate-200 bg-white px-4 py-3">
-          <View className="flex-row gap-3">
-            <Pressable className="flex-1 items-center justify-center rounded-xl border border-slate-200 py-3.5 active:bg-slate-50">
-              <Text className="text-base font-semibold text-slate-700">Liên Hệ Hỗ Trợ</Text>
+        <View className="border-t border-slate-200 bg-white px-4 py-3">
+          <Pressable
+            className={`items-center justify-center rounded-xl py-3.5 ${
+              reorderLoading ? 'bg-green-300' : 'bg-green-500 active:bg-green-600'
+            }`}
+            disabled={reorderLoading}
+            onPress={() => void handleReorder()}>
+            {reorderLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text className="text-base font-semibold text-white">Đặt lại</Text>
+            )}
+          </Pressable>
+          {!hideCancelButton ? (
+            <Pressable
+              className={`mt-2 items-center justify-center rounded-xl py-3.5 ${
+                cancelLoading ? 'bg-rose-300' : 'bg-rose-500 active:bg-rose-600'
+              }`}
+              disabled={cancelLoading}
+              onPress={handleCancelOrder}>
+              {cancelLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text className="text-base font-semibold text-white">Huỷ đơn</Text>
+              )}
             </Pressable>
-            <Pressable className="flex-1 flex-row items-center justify-center rounded-xl bg-green-500 py-3.5 active:bg-green-600">
-              <Feather name="file-text" size={18} color="#fff" />
-              <Text className="ml-2 text-base font-semibold text-white">Xem hóa đơn</Text>
-            </Pressable>
-          </View>
-        </View> */}
+          ) : null}
+        </View>
       </View>
     </SafeAreaView>
   );

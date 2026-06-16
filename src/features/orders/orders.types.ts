@@ -98,7 +98,7 @@ export type CommissionHistoryApiResponse = {
   success: boolean;
   message: string;
   data: {
-    period_month: string;
+    period_month: string | null;
     summary: CommissionHistorySummary;
     entries: CommissionHistoryEntry[];
   };
@@ -162,4 +162,10 @@ export type OrderDetailApiResponse = {
   success: boolean;
   message: string;
   data: OrderDetailData;
+};
+
+export type DestroyOrderApiResponse = {
+  success: boolean;
+  message: string;
+  data: Record<string, never>;
 };
