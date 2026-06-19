@@ -7,6 +7,8 @@
       "loginPlaceholder": "Enter email or phone number",
       "passwordLabel": "Password",
       "passwordPlaceholder": "••••••••",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
       "submit": "Sign In",
       "internalOnly": "Internal access only",
       "errors": {

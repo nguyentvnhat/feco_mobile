@@ -7,6 +7,8 @@
       "loginPlaceholder": "Nhập email hoặc số điện thoại",
       "passwordLabel": "Mật khẩu",
       "passwordPlaceholder": "••••••••",
+      "showPassword": "Hiện mật khẩu",
+      "hidePassword": "Ẩn mật khẩu",
       "submit": "Đăng nhập",
       "internalOnly": "Chỉ dành cho truy cập nội bộ",
       "errors": {

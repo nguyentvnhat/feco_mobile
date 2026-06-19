@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -20,6 +21,7 @@ export default function LoginScreen() {
   const { t } = useTranslation();
   const [loginInput, setLoginInput] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [formError, setFormError] = useState('');
@@ -111,19 +113,39 @@ export default function LoginScreen() {
                 <Text className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
                   {t('auth.login.passwordLabel')}
                 </Text>
-                <TextInput
-                  className={`rounded-lg border bg-white px-3 py-3 text-base text-slate-900 placeholder:text-slate-400 ${
-                    passwordError ? 'border-red-500' : 'border-slate-200'
-                  }`}
-                  placeholder={t('auth.login.passwordPlaceholder')}
-                  secureTextEntry
-                  editable={!loading}
-                  value={password}
-                  onChangeText={(t) => {
-                    setPassword(t);
-                    if (passwordError) setPasswordError('');
-                  }}
-                />
+                <View className="relative">
+                  <TextInput
+                    className={`rounded-lg border bg-white py-3 pl-3 pr-11 text-base text-slate-900 placeholder:text-slate-400 ${
+                      passwordError ? 'border-red-500' : 'border-slate-200'
+                    }`}
+                    placeholder={t('auth.login.passwordPlaceholder')}
+                    secureTextEntry={!passwordVisible}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!loading}
+                    value={password}
+                    onChangeText={(t) => {
+                      setPassword(t);
+                      if (passwordError) setPasswordError('');
+                    }}
+                  />
+                  <Pressable
+                    className="absolute bottom-0 right-0 top-0 justify-center px-3"
+                    disabled={loading}
+                    onPress={() => setPasswordVisible((visible) => !visible)}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      passwordVisible
+                        ? t('auth.login.hidePassword')
+                        : t('auth.login.showPassword')
+                    }>
+                    <Ionicons
+                      name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+                      size={22}
+                      color="#64748b"
+                    />
+                  </Pressable>
+                </View>
                 {passwordError ? (
                   <Text className="mt-1.5 text-sm text-red-600">{passwordError}</Text>
                 ) : null}
