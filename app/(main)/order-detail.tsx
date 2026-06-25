@@ -50,6 +50,13 @@ export default function OrderDetailScreen() {
       });
       return;
     }
+    if (source === 'discount-history') {
+      router.replace({
+        pathname: '/(main)/discount-history',
+        params: { source: historySource || 'account' },
+      });
+      return;
+    }
     if (source === 'orders') {
       router.replace('/(main)/orders');
       return;

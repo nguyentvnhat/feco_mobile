@@ -1,6 +1,6 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -49,17 +49,10 @@ export default function AgentOrdersScreen() {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [navigatingOrderId, setNavigatingOrderId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const loadingMoreRef = useRef(false);
   const userHasScrolledRef = useRef(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      setNavigatingOrderId(null);
-    }, []),
-  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -167,24 +160,9 @@ export default function AgentOrdersScreen() {
       const code = order.order_no.startsWith('#') ? order.order_no : `#${order.order_no}`;
       const customer = order.customer?.customer_name || 'Khách hàng';
       const firstProduct = order.products?.[0];
-      const isNavigating = navigatingOrderId === order.id;
 
       return (
-        <Pressable
-          className="relative mb-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5 active:opacity-95"
-          disabled={isNavigating}
-          onPress={() => {
-            setNavigatingOrderId(order.id);
-            router.push({
-              pathname: '/(main)/order-detail',
-              params: {
-                id: String(order.id),
-                source: 'agent-orders',
-                agentId: String(agentId),
-                agentName,
-              },
-            });
-          }}>
+        <View className="mb-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-3">
               <Text className="text-sm font-semibold tracking-wide text-slate-400">{code}</Text>
@@ -263,15 +241,10 @@ export default function AgentOrdersScreen() {
               </View>
             </View>
           </View>
-          {isNavigating ? (
-            <View className="absolute inset-0 items-center justify-center rounded-2xl bg-white/60">
-              <ActivityIndicator size="small" color="#22c55e" />
-            </View>
-          ) : null}
-        </Pressable>
+        </View>
       );
     },
-    [agentId, agentName, navigatingOrderId],
+    [],
   );
 
   const listFooter = useMemo(() => {

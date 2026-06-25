@@ -45,6 +45,14 @@ export const ordersService = {
     return api.get<CommissionHistoryApiResponse>('/order/history-commission', params);
   },
 
+  historyDiscount(params?: {
+    month?: string;
+    all?: boolean;
+    limit?: number;
+  }) {
+    return api.get<CommissionHistoryApiResponse>('/order/history-discount', params);
+  },
+
   detail(orderId: number | string) {
     return api.get<OrderDetailApiResponse>(`/orders/${orderId}`);
   },

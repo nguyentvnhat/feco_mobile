@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authService } from '@/src/features/auth/auth.service';
 
 const menuItems = [
-  { key: 'commission-history', label: 'Lịch sử chiết khấu' },
+  { key: 'commission-history', label: 'Lịch sử hoa hồng' },
+  { key: 'discount-history', label: 'Lịch sử chiết khấu' },
   { key: 'business-info', label: 'Thông tin doanh nghiệp' },
   { key: 'commission-policy', label: 'Chính sách hoa hồng' },
 ];
@@ -145,6 +146,13 @@ export default function AccountRoute() {
                 if (item.key === 'commission-history') {
                   router.push({
                     pathname: '/(main)/commission-history',
+                    params: { source: 'account' },
+                  });
+                  return;
+                }
+                if (item.key === 'discount-history') {
+                  router.push({
+                    pathname: '/(main)/discount-history',
                     params: { source: 'account' },
                   });
                   return;

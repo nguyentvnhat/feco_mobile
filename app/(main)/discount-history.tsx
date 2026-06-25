@@ -57,17 +57,23 @@ function formatPeriodMonth(periodMonth: string | null | undefined) {
   return `Tháng ${Number(match[2])}/${match[1]}`;
 }
 
-function formatCommissionAmount(amount: string, settlementStatus: string) {
+function formatDiscountAmount(amount: string, orderStatus: string) {
   const formatted = appendCurrency(amount, 'đ');
   if (formatted === '--') return '--';
-  if (settlementStatus === 'rejected') return formatted;
-  return formatted.startsWith('+') ? formatted : `+${formatted}`;
+  if (['cancelled', 'returned', 'partial_returned', 'on_return', 'return_received', 'rejected'].includes(orderStatus)) {
+    return formatted;
+  }
+  return formatted.startsWith('-') ? formatted : `-${formatted}`;
 }
 
-function normalizeCommissionState(settlementStatus: string): RewardRow['state'] {
-  if (settlementStatus === 'rejected') return 'cancelled';
-  if (settlementStatus === 'paid') return 'paid';
-  if (settlementStatus === 'approved') return 'approved';
+function normalizeOrderState(orderStatus: string): RewardRow['state'] {
+  if (['cancelled', 'returned', 'partial_returned', 'on_return', 'return_received', 'rejected'].includes(orderStatus)) {
+    return 'cancelled';
+  }
+  if (orderStatus === 'delivered') return 'paid';
+  if (['ready_to_ship', 'shipped', 'tpl_confirmed', 'tpl_transit', 'delivering'].includes(orderStatus)) {
+    return 'approved';
+  }
   return 'pending';
 }
 
@@ -121,15 +127,15 @@ function mapEntryToRow(entry: CommissionHistoryEntry): RewardRow {
   return {
     id: String(entry.id),
     orderId: entry.order_id ?? null,
-    title: orderNo ? `Đơn hàng ${code}` : `Hoa hồng #${entry.id}`,
+    title: `Đơn hàng ${code}`,
     date: formatEntryDate(entry.created_at),
-    amount: formatCommissionAmount(entry.amount, entry.settlement_status),
+    amount: formatDiscountAmount(entry.amount, entry.settlement_status),
     status: entry.settlement_status_label_vi || entry.settlement_status,
-    state: normalizeCommissionState(entry.settlement_status),
+    state: normalizeOrderState(entry.settlement_status),
   };
 }
 
-export default function CommissionHistoryScreen() {
+export default function DiscountHistoryScreen() {
   const params = useLocalSearchParams<{ source?: string | string[] }>();
   const monthOptions = useMemo(() => buildMonthOptions(MONTH_FILTER_COUNT), []);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentPeriodMonth);
@@ -156,10 +162,6 @@ export default function CommissionHistoryScreen() {
   }, [monthOptions, selectedMonth, viewAll]);
 
   function handleBack() {
-    if (source === 'home') {
-      router.replace('/(main)');
-      return;
-    }
     if (source === 'account') {
       router.replace('/(main)/account');
       return;
@@ -179,12 +181,12 @@ export default function CommissionHistoryScreen() {
       setError('');
       setIsMonthOpen(false);
       try {
-        const res = await ordersService.historyCommission(
+        const res = await ordersService.historyDiscount(
           viewAll ? { all: true } : { month: selectedMonth },
         );
         if (cancelled) return;
         if (!res.success) {
-          setError(res.message || 'Không tải được lịch sử hoa hồng.');
+          setError(res.message || 'Không tải được lịch sử chiết khấu.');
           setPeriodMonth('');
           setSummary(null);
           setRows([]);
@@ -196,7 +198,7 @@ export default function CommissionHistoryScreen() {
         setRows((res.data?.entries ?? []).map(mapEntryToRow));
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Không tải được lịch sử hoa hồng.');
+          setError(e instanceof Error ? e.message : 'Không tải được lịch sử chiết khấu.');
           setPeriodMonth('');
           setSummary(null);
           setRows([]);
@@ -224,17 +226,6 @@ export default function CommissionHistoryScreen() {
     () => (viewAll ? 'Tất cả thời gian' : formatPeriodMonth(periodMonth)),
     [periodMonth, viewAll],
   );
-  const summaryBreakdown = useMemo(
-    () =>
-      summary
-        ? [
-            { key: 'pending', label: 'Chờ duyệt', value: summary.pending_commission },
-            { key: 'approved', label: 'Đã duyệt', value: summary.approved_commission },
-            { key: 'paid', label: 'Đã thanh toán', value: summary.paid_commission },
-          ]
-        : [],
-    [summary],
-  );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top', 'bottom']}>
@@ -245,7 +236,7 @@ export default function CommissionHistoryScreen() {
             onPress={handleBack}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#0f172a" />
           </Pressable>
-          <Text className="text-2xl font-semibold tracking-tight text-slate-900">Lịch sử hoa hồng</Text>
+          <Text className="text-2xl font-semibold tracking-tight text-slate-900">Lịch sử chiết khấu</Text>
         </View>
 
         <ScrollView className="flex-1" contentContainerClassName="px-4 pb-6 pt-4">
@@ -303,26 +294,14 @@ export default function CommissionHistoryScreen() {
             <>
               <View className="mb-4 rounded-xl bg-white p-4 shadow-sm shadow-slate-900/5">
                 <Text className="text-sm text-slate-500">{periodLabel}</Text>
-                <Text className="mt-1 text-base font-semibold text-slate-900">Tổng hoa hồng</Text>
+                <Text className="mt-1 text-base font-semibold text-slate-900">Tổng chiết khấu</Text>
                 <Text className="mt-1 text-2xl font-bold text-green-600">
                   {appendCurrency(summary?.total_commission, 'đ')}
                 </Text>
                 {summary != null ? (
                   <Text className="mt-1 text-sm text-slate-500">
-                    {summary.entry_count} khoản hoa hồng
+                    {summary.entry_count} đơn có chiết khấu
                   </Text>
-                ) : null}
-                {summaryBreakdown.length > 0 ? (
-                  <View className="mt-4 border-t border-slate-100 pt-3">
-                    {summaryBreakdown.map((item) => (
-                      <View key={item.key} className="mb-2 flex-row items-center justify-between last:mb-0">
-                        <Text className="text-sm text-slate-600">{item.label}</Text>
-                        <Text className="text-sm font-semibold text-slate-800">
-                          {appendCurrency(item.value, 'đ')}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
                 ) : null}
               </View>
 
@@ -331,9 +310,9 @@ export default function CommissionHistoryScreen() {
               {rows.length === 0 ? (
                 <View className="items-center py-10">
                   <View className="h-28 w-28 items-center justify-center rounded-full bg-green-50">
-                    <MaterialCommunityIcons name="cash-multiple" size={42} color="#22c55e" />
+                    <MaterialCommunityIcons name="percent-outline" size={42} color="#22c55e" />
                   </View>
-                  <Text className="mt-3 text-center text-sm text-slate-500">Hiện chưa có lịch sử hoa hồng.</Text>
+                  <Text className="mt-3 text-center text-sm text-slate-500">Hiện chưa có lịch sử chiết khấu.</Text>
                 </View>
               ) : (
                 rows.map((item) => {
@@ -351,7 +330,7 @@ export default function CommissionHistoryScreen() {
                           pathname: '/(main)/order-detail',
                           params: {
                             id: String(item.orderId),
-                            source: 'commission-history',
+                            source: 'discount-history',
                             historySource: source || 'account',
                           },
                         });

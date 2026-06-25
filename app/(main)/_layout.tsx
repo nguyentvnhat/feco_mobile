@@ -57,6 +57,7 @@ export default function TabLayout() {
           'order-detail': 'orders',
           'agent-orders': 'agents',
           'commission-history': 'account',
+          'discount-history': 'account',
           'business-info': 'account',
           'commission-policy': 'account',
         };
@@ -148,6 +149,13 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="commission-history"
+        options={{
+          href: null,
+          title: 'Lịch sử hoa hồng',
+        }}
+      />
+      <Tabs.Screen
+        name="discount-history"
         options={{
           href: null,
           title: 'Lịch sử chiết khấu',
