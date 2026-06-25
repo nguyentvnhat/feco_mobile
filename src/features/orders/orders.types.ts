@@ -146,6 +146,10 @@ export type OrderDetailData = {
   subtotal_amount: string;
   discount_amount: string;
   net_amount: string;
+  vat_base?: string;
+  vat_rate_percent?: number | null;
+  vat_amount?: string;
+  total_with_vat?: string;
   currency?: string;
   customer_name?: string | null;
   customer_phone?: string | null;

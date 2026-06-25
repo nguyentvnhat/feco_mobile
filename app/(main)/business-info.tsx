@@ -34,7 +34,7 @@ export default function BusinessInfoScreen() {
         setBusinessInfo('');
         return;
       }
-      const value = res.data?.settings?.[0]?.value?.trim() || '';
+      const value = res.data?.settings?.find((s) => s.key === 'business_info')?.value?.trim() || '';
       setBusinessInfo(value || DEFAULT_BUSINESS_INFO);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tải được thông tin doanh nghiệp.');
@@ -84,7 +84,7 @@ export default function BusinessInfoScreen() {
           ) : (
             <View style={styles.contentCard}>
               <RenderHTML
-                contentWidth={Math.max(width - 96, 0)}
+                contentWidth={Math.max(width - 48, 0)}
                 source={{ html: businessInfoHtml }}
                 baseStyle={styles.contentBase}
                 tagsStyles={{
@@ -93,6 +93,13 @@ export default function BusinessInfoScreen() {
                   h2: styles.contentH2,
                   h3: styles.contentH3,
                   li: styles.contentListItem,
+                  ul: styles.contentList,
+                  ol: styles.contentList,
+                  strong: styles.contentStrong,
+                  b: styles.contentStrong,
+                  em: styles.contentEm,
+                  u: styles.contentUnderline,
+                  a: styles.contentLink,
                 }}
               />
             </View>
@@ -206,5 +213,22 @@ const styles = StyleSheet.create({
   contentListItem: {
     marginBottom: 6,
     color: '#0f172a',
+  },
+  contentList: {
+    marginBottom: 12,
+    paddingLeft: 4,
+  },
+  contentStrong: {
+    fontWeight: '700',
+  },
+  contentEm: {
+    fontStyle: 'italic',
+  },
+  contentUnderline: {
+    textDecorationLine: 'underline',
+  },
+  contentLink: {
+    color: '#16a34a',
+    textDecorationLine: 'underline',
   },
 });

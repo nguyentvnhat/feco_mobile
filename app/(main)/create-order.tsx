@@ -231,7 +231,19 @@ export default function CreateOrderScreen() {
     [selectedProductUnitPrice, quantityNumber],
   );
 
-  function resetForm() {
+  const previewVatRateLabel = useMemo(() => {
+    const rate = previewSummary?.vat_rate_percent;
+    if (rate == null || !Number.isFinite(rate)) return '0';
+    return String(Number(rate.toFixed(2)));
+  }, [previewSummary?.vat_rate_percent]);
+  const previewHasDiscount = useMemo(() => {
+    const raw = (previewSummary?.discount_amount ?? '').replace(/\./g, '').replace(',', '.').trim();
+    if (!raw) return false;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0;
+  }, [previewSummary?.discount_amount]);
+
+  const resetForm = useCallback(() => {
     previewRoundRef.current += 1;
     setPreviewSummary(null);
     setPreviewLoading(false);
@@ -259,7 +271,7 @@ export default function CreateOrderScreen() {
     setIsRecipientProvinceOpen(false);
     setIsRecipientWardOpen(false);
     setFieldErrors({});
-  }
+  }, []);
 
   const loadScreen = useCallback(async () => {
     setBootLoading(true);
@@ -280,7 +292,8 @@ export default function CreateOrderScreen() {
       }
       setSellerUserId(meRes.data.user.id);
       setAgentProfileId(meRes.data.agent.id);
-      setProducts(metaRes.data?.products ?? []);
+      const loadedProducts = metaRes.data?.products ?? [];
+      setProducts(loadedProducts);
       setProvinces(metaRes.data?.provinces ?? []);
       setWards(metaRes.data?.wards ?? []);
 
@@ -305,6 +318,9 @@ export default function CreateOrderScreen() {
         setFieldErrors({});
 
         hasAppliedCloneRef.current = true;
+      } else if (loadedProducts.length === 1) {
+        setSelectedProduct(loadedProducts[0]);
+        setIsProductOpen(false);
       }
     } catch (e) {
       setBootError(e instanceof Error ? e.message : t('createOrder.errors.loadMeta'));
@@ -315,9 +331,16 @@ export default function CreateOrderScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      hasAppliedCloneRef.current = false;
+      setSubmitting(false);
+      resetForm();
+      formScrollRef.current?.scrollTo({ y: 0, animated: false });
       void loadScreen();
-    }, [loadScreen]),
+    }, [loadScreen, resetForm]),
   );
+
+  const isSingleProductCatalog = products.length === 1;
+  const singleCatalogProduct = isSingleProductCatalog ? products[0] : null;
 
   useLayoutEffect(() => {
     const parent = navigation.getParent();
@@ -617,50 +640,63 @@ export default function CreateOrderScreen() {
                     onLayout={(e) => registerFieldLayout('products', e.nativeEvent.layout.y)}>
                     {t('createOrder.selectProduct')}
                   </Text>
-                  <Pressable
-                    className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
-                    onPress={() => {
-                      setIsProductOpen((prev) => !prev);
-                      setIsProvinceOpen(false);
-                      setIsWardOpen(false);
-                    }}>
-                    <Text className={`flex-1 pr-2 text-base ${selectedProduct ? 'text-slate-900' : 'text-slate-400'}`}>
-                      {selectedProduct ? `${selectedProduct.name} (${selectedProduct.sku})` : t('createOrder.selectProductPlaceholder')}
-                    </Text>
-                    <MaterialCommunityIcons
-                      name={isProductOpen ? 'chevron-up' : 'chevron-down'}
-                      size={22}
-                      color="#64748b"
-                    />
-                  </Pressable>
-                  {pickFirstError(fieldErrors, 'products') || pickFirstError(fieldErrors, 'products.0.product_id') ? (
-                    <Text className="mb-4 text-xs text-red-600">
-                      {pickFirstError(fieldErrors, 'products') || pickFirstError(fieldErrors, 'products.0.product_id')}
-                    </Text>
-                  ) : null}
-                  {isProductOpen ? (
-                    <View className="mb-4 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
-                      <ScrollView nestedScrollEnabled>
-                        {products.length === 0 ? (
-                          <Text className="px-3 py-4 text-center text-sm text-slate-500">
-                            {t('createOrder.noProducts')}
-                          </Text>
-                        ) : (
-                          products.map((item) => (
-                            <Pressable
-                              key={item.id}
-                              className="border-b border-slate-200 px-3 py-3 active:bg-slate-100"
-                              onPress={() => pickProduct(item)}>
-                              <Text className="text-base font-medium text-slate-900">{item.name}</Text>
-                              <Text className="text-sm text-slate-500">
-                                {item.sku} · {localizeUnitDisplay(item.base_unit)}
-                              </Text>
-                            </Pressable>
-                          ))
-                        )}
-                      </ScrollView>
+                  {isSingleProductCatalog && singleCatalogProduct ? (
+                    <View className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3.5">
+                      <Text className="text-base font-medium text-slate-900">
+                        {singleCatalogProduct.name} ({singleCatalogProduct.sku})
+                      </Text>
+                      <Text className="mt-0.5 text-sm text-slate-500">
+                        {localizeUnitDisplay(singleCatalogProduct.sale_unit ?? 'box')}
+                      </Text>
                     </View>
-                  ) : null}
+                  ) : (
+                    <>
+                      <Pressable
+                        className="mb-4 flex-row items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3.5 active:bg-slate-50"
+                        onPress={() => {
+                          setIsProductOpen((prev) => !prev);
+                          setIsProvinceOpen(false);
+                          setIsWardOpen(false);
+                        }}>
+                        <Text className={`flex-1 pr-2 text-base ${selectedProduct ? 'text-slate-900' : 'text-slate-400'}`}>
+                          {selectedProduct ? `${selectedProduct.name} (${selectedProduct.sku})` : t('createOrder.selectProductPlaceholder')}
+                        </Text>
+                        <MaterialCommunityIcons
+                          name={isProductOpen ? 'chevron-up' : 'chevron-down'}
+                          size={22}
+                          color="#64748b"
+                        />
+                      </Pressable>
+                      {pickFirstError(fieldErrors, 'products') || pickFirstError(fieldErrors, 'products.0.product_id') ? (
+                        <Text className="mb-4 text-xs text-red-600">
+                          {pickFirstError(fieldErrors, 'products') || pickFirstError(fieldErrors, 'products.0.product_id')}
+                        </Text>
+                      ) : null}
+                      {isProductOpen ? (
+                        <View className="mb-4 max-h-52 rounded-lg border border-slate-200 bg-slate-50">
+                          <ScrollView nestedScrollEnabled>
+                            {products.length === 0 ? (
+                              <Text className="px-3 py-4 text-center text-sm text-slate-500">
+                                {t('createOrder.noProducts')}
+                              </Text>
+                            ) : (
+                              products.map((item) => (
+                                <Pressable
+                                  key={item.id}
+                                  className="border-b border-slate-200 px-3 py-3 active:bg-slate-100"
+                                  onPress={() => pickProduct(item)}>
+                                  <Text className="text-base font-medium text-slate-900">{item.name}</Text>
+                                  <Text className="text-sm text-slate-500">
+                                    {item.sku} · {localizeUnitDisplay(item.sale_unit ?? 'box')}
+                                  </Text>
+                                </Pressable>
+                              ))
+                            )}
+                          </ScrollView>
+                        </View>
+                      ) : null}
+                    </>
+                  )}
 
                   <Text
                     className="mb-2 text-xs font-medium text-slate-600"
@@ -678,7 +714,7 @@ export default function CreateOrderScreen() {
                       keyboardType="number-pad"
                     />
                     <Text className="text-base text-slate-600">
-                      {selectedProduct ? localizeUnitDisplay(selectedProduct.base_unit) : t('createOrder.unit')}
+                      {selectedProduct ? localizeUnitDisplay(selectedProduct.sale_unit ?? 'box') : t('createOrder.unit')}
                     </Text>
                   </View>
                   <Text className={`text-xs text-slate-500 ${pickFirstError(fieldErrors, 'products.0.quantity') ? 'mb-2' : 'mb-4'}`}>
@@ -1038,7 +1074,7 @@ export default function CreateOrderScreen() {
                       {previewLoading && !previewSummary ? (
                         <ActivityIndicator size="small" color="#16a34a" />
                       ) : null}
-                      <Text className="text-base font-bold text-green-600">
+                      <Text className="text-base font-bold text-slate-900">
                         {previewSummary
                           ? appendCurrency(previewSummary.subtotal_amount, previewSummary.currency)
                           : selectedProduct && quantityNumber > 0
@@ -1047,33 +1083,55 @@ export default function CreateOrderScreen() {
                       </Text>
                     </View>
                   </View>
-                  <View className="mt-1 flex-row items-center justify-between">
-                    <Text className="text-base text-slate-700">{t('createOrder.discount')}</Text>
-                    <View className="flex-row items-center gap-2">
-                      {previewLoading && !previewSummary ? (
-                        <ActivityIndicator size="small" color="#64748b" />
-                      ) : null}
-                      <Text className="text-base text-slate-800">
-                        {previewSummary
-                          ? appendCurrency(previewSummary.discount_amount, previewSummary.currency)
-                          : previewLoading
-                            ? t('createOrder.previewCalculating')
-                            : t('createOrder.previewUnavailable')}
-                      </Text>
+                  {previewHasDiscount ? (
+                    <View className="mt-1 flex-row items-center justify-between">
+                      <Text className="text-base text-green-600">{t('createOrder.discount')}</Text>
+                      <View className="flex-row items-center gap-2">
+                        {previewLoading && !previewSummary ? (
+                          <ActivityIndicator size="small" color="#64748b" />
+                        ) : null}
+                        <Text className="text-base text-green-600">
+                          -{appendCurrency(previewSummary?.discount_amount, previewSummary?.currency)}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
+                  ) : null}
+                  {previewSummary ? (
+                    <>
+                      <View className="mt-1 flex-row items-center justify-between">
+                        <Text className="text-base text-slate-700">{t('createOrder.vatBase')}</Text>
+                        <Text className="text-base text-slate-800">
+                          {appendCurrency(
+                            previewSummary.vat_base ?? previewSummary.net_amount,
+                            previewSummary.currency,
+                          )}
+                        </Text>
+                      </View>
+                      <View className="mt-1 flex-row items-center justify-between">
+                        <Text className="text-base text-slate-700">
+                          {t('createOrder.vatAmount', { rate: previewVatRateLabel })}
+                        </Text>
+                        <Text className="text-base text-slate-800">
+                          {appendCurrency(previewSummary.vat_amount, previewSummary.currency)}
+                        </Text>
+                      </View>
+                    </>
+                  ) : null}
                   {previewError ? (
                     <Text className="mt-1 text-right text-xs text-red-600">{previewError}</Text>
                   ) : null}
                   <View className="mt-1 flex-row items-center justify-between border-t border-slate-100 pt-2">
-                    <Text className="text-base font-bold text-slate-900">{t('createOrder.total')}</Text>
+                    <Text className="text-base font-bold text-slate-900">{t('createOrder.totalPayment')}</Text>
                     <View className="flex-row items-center gap-2">
                       {previewLoading && !previewSummary ? (
                         <ActivityIndicator size="small" color="#16a34a" />
                       ) : null}
                       <Text className="text-base font-bold text-green-600">
                         {previewSummary
-                          ? appendCurrency(previewSummary.net_amount, previewSummary.currency)
+                          ? appendCurrency(
+                              previewSummary.total_with_vat ?? previewSummary.net_amount,
+                              previewSummary.currency,
+                            )
                           : previewLoading
                             ? t('createOrder.previewCalculating')
                             : selectedProduct && quantityNumber > 0

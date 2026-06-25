@@ -18,6 +18,28 @@ function formatOrderDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('vi-VN');
 }
 
+export function formatOrderDateTime(iso?: string | null, fallback = '--') {
+  if (!iso) return fallback;
+
+  const raw = iso.trim();
+  const isMidnightInIso = /T00:00(?::00(?:\.0+)?)?(?:Z|[+-]\d{2}:\d{2})?$/i.test(raw);
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return fallback;
+
+  const hideTime = isMidnightInIso || (date.getHours() === 0 && date.getMinutes() === 0);
+  if (hideTime) {
+    return date.toLocaleDateString('vi-VN');
+  }
+
+  return date.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function appendCurrency(value: string | null | undefined, currency: string | null | undefined): string {
   const text = (value ?? '').trim();
   if (!text) return '--';

@@ -2,9 +2,8 @@ export type CreateMetadataProduct = {
   id: number;
   sku: string;
   name: string;
-  base_unit: string;
+  sale_unit?: string;
   unit_price?: string | null;
-  list_price?: string | number | null;
   currency?: string | null;
 };
 
@@ -69,6 +68,10 @@ export type PreviewOrderSummary = {
   subtotal_amount: string;
   discount_amount: string;
   net_amount: string;
+  vat_base?: string;
+  vat_rate_percent?: number;
+  vat_amount?: string;
+  total_with_vat?: string;
   currency?: string;
 };
 

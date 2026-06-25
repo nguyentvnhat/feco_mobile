@@ -55,6 +55,7 @@ export default function TabLayout() {
         const parentTabByHiddenRoute: Record<string, string> = {
           'create-order': 'orders',
           'order-detail': 'orders',
+          'agent-orders': 'agents',
           'commission-history': 'account',
           'business-info': 'account',
           'commission-policy': 'account',
@@ -125,6 +126,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="agent-orders"
+        options={{
+          href: null,
+          title: 'Đơn hàng đại lý',
+        }}
+      />
+      <Tabs.Screen
         name="create-order"
         options={{
           href: null,
@@ -142,7 +150,7 @@ export default function TabLayout() {
         name="commission-history"
         options={{
           href: null,
-          title: 'Hoa hồng của tôi',
+          title: 'Lịch sử chiết khấu',
         }}
       />
       <Tabs.Screen

@@ -2,6 +2,9 @@ export type ChildAgent = {
   id: number;
   code?: string | null;
   name?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  full_address?: string | null;
   city?: string | null;
   ward?: string | null;
   region?: string | null;

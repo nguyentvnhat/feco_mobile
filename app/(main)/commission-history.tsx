@@ -1,13 +1,14 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { appendCurrency, ordersService } from '@/src/features/orders';
+import { appendCurrency, formatOrderDateTime, ordersService } from '@/src/features/orders';
 import type { CommissionHistoryEntry, CommissionHistorySummary } from '@/src/features/orders';
 
 type RewardRow = {
   id: string;
+  orderId: number | null;
   title: string;
   date: string;
   amount: string;
@@ -46,12 +47,7 @@ function buildMonthOptions(count: number): MonthOption[] {
 }
 
 function formatEntryDate(iso: string | null) {
-  if (!iso) return '--';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '--';
-  const datePart = d.toLocaleDateString('vi-VN');
-  const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  return `${datePart} ${timePart}`;
+  return formatOrderDateTime(iso);
 }
 
 function formatPeriodMonth(periodMonth: string | null | undefined) {
@@ -61,18 +57,25 @@ function formatPeriodMonth(periodMonth: string | null | undefined) {
   return `Tháng ${Number(match[2])}/${match[1]}`;
 }
 
-function formatCommissionAmount(amount: string, settlementStatus: string) {
+function formatDiscountAmount(amount: string, orderStatus: string) {
   const formatted = appendCurrency(amount, 'đ');
   if (formatted === '--') return '--';
-  if (settlementStatus === 'rejected') return formatted;
-  return formatted.startsWith('+') || formatted.startsWith('-') ? formatted : `+${formatted}`;
+  if (['cancelled', 'returned', 'partial_returned', 'on_return', 'return_received', 'rejected'].includes(orderStatus)) {
+    return formatted;
+  }
+  return formatted.startsWith('-') ? formatted : `-${formatted}`;
 }
 
-function normalizeState(settlementStatus: string): RewardRow['state'] {
-  if (settlementStatus === 'rejected') return 'cancelled';
-  if (settlementStatus === 'pending') return 'pending';
-  if (settlementStatus === 'approved') return 'approved';
-  return 'paid';
+function normalizeState(orderStatus: string): RewardRow['state'] {
+  if (['cancelled', 'returned', 'partial_returned', 'on_return', 'return_received', 'rejected'].includes(orderStatus)) {
+    return 'cancelled';
+  }
+  if (orderStatus === 'delivered') return 'paid';
+  if (['ready_to_ship', 'shipped', 'tpl_confirmed', 'tpl_transit', 'delivering'].includes(orderStatus)) {
+    return 'approved';
+  }
+  if (orderStatus === 'pending') return 'pending';
+  return 'pending';
 }
 
 function stateStyle(state: RewardRow['state']) {
@@ -124,9 +127,10 @@ function mapEntryToRow(entry: CommissionHistoryEntry): RewardRow {
 
   return {
     id: String(entry.id),
+    orderId: entry.order_id ?? null,
     title: `Đơn hàng ${code}`,
     date: formatEntryDate(entry.created_at),
-    amount: formatCommissionAmount(entry.amount, entry.settlement_status),
+    amount: formatDiscountAmount(entry.amount, entry.settlement_status),
     status: entry.settlement_status_label_vi || entry.settlement_status,
     state: normalizeState(entry.settlement_status),
   };
@@ -143,7 +147,14 @@ export default function CommissionHistoryScreen() {
   const [periodMonth, setPeriodMonth] = useState<string | null>('');
   const [summary, setSummary] = useState<CommissionHistorySummary | null>(null);
   const [rows, setRows] = useState<RewardRow[]>([]);
+  const [navigatingOrderId, setNavigatingOrderId] = useState<number | null>(null);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  useFocusEffect(
+    useCallback(() => {
+      setNavigatingOrderId(null);
+    }, []),
+  );
 
   const selectedMonthLabel = useMemo(() => {
     if (viewAll) return 'Tất cả';
@@ -180,7 +191,7 @@ export default function CommissionHistoryScreen() {
         );
         if (cancelled) return;
         if (!res.success) {
-          setError(res.message || 'Không tải được lịch sử hoa hồng.');
+          setError(res.message || 'Không tải được lịch sử chiết khấu.');
           setPeriodMonth('');
           setSummary(null);
           setRows([]);
@@ -192,7 +203,7 @@ export default function CommissionHistoryScreen() {
         setRows((res.data?.entries ?? []).map(mapEntryToRow));
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Không tải được lịch sử hoa hồng.');
+          setError(e instanceof Error ? e.message : 'Không tải được lịch sử chiết khấu.');
           setPeriodMonth('');
           setSummary(null);
           setRows([]);
@@ -241,7 +252,7 @@ export default function CommissionHistoryScreen() {
             onPress={handleBack}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#0f172a" />
           </Pressable>
-          <Text className="text-2xl font-semibold tracking-tight text-slate-900">Hoa hồng của tôi</Text>
+          <Text className="text-2xl font-semibold tracking-tight text-slate-900">Lịch sử chiết khấu</Text>
         </View>
 
         <ScrollView className="flex-1" contentContainerClassName="px-4 pb-6 pt-4">
@@ -299,7 +310,7 @@ export default function CommissionHistoryScreen() {
             <>
               <View className="mb-4 rounded-xl bg-white p-4 shadow-sm shadow-slate-900/5">
                 <Text className="text-sm text-slate-500">{periodLabel}</Text>
-                <Text className="mt-1 text-base font-semibold text-slate-900">Tổng hoa hồng</Text>
+                <Text className="mt-1 text-base font-semibold text-slate-900">Tổng chiết khấu</Text>
                 <Text className="mt-1 text-2xl font-bold text-green-600">
                   {appendCurrency(summary?.total_commission, 'đ')}
                 </Text>
@@ -322,20 +333,36 @@ export default function CommissionHistoryScreen() {
                 ) : null} */}
               </View>
 
-              <Text className="mb-3 text-base font-semibold text-slate-900">Lịch sử nhận thưởng</Text>
+              <Text className="mb-3 text-base font-semibold text-slate-900">Chi tiết theo đơn</Text>
 
               {rows.length === 0 ? (
                 <View className="items-center py-10">
                   <View className="h-28 w-28 items-center justify-center rounded-full bg-green-50">
                     <MaterialCommunityIcons name="cash-multiple" size={42} color="#22c55e" />
                   </View>
-                  <Text className="mt-3 text-center text-sm text-slate-500">Hiện chưa có lịch sử hoa hồng.</Text>
+                  <Text className="mt-3 text-center text-sm text-slate-500">Hiện chưa có lịch sử chiết khấu.</Text>
                 </View>
               ) : (
                 rows.map((item) => {
                   const style = stateStyle(item.state);
+                  const isNavigating = navigatingOrderId === item.orderId;
                   return (
-                    <View key={item.id} className="mb-3 rounded-xl bg-white px-3 py-3 shadow-sm shadow-slate-900/5">
+                    <Pressable
+                      key={item.id}
+                      className="relative mb-3 rounded-xl bg-white px-3 py-3 shadow-sm shadow-slate-900/5 active:opacity-95"
+                      disabled={!item.orderId || isNavigating}
+                      onPress={() => {
+                        if (!item.orderId) return;
+                        setNavigatingOrderId(item.orderId);
+                        router.push({
+                          pathname: '/(main)/order-detail',
+                          params: {
+                            id: String(item.orderId),
+                            source: 'commission-history',
+                            historySource: source || 'account',
+                          },
+                        });
+                      }}>
                       <View className="flex-row items-center">
                         <View
                           className="h-12 w-12 items-center justify-center rounded-full"
@@ -357,7 +384,12 @@ export default function CommissionHistoryScreen() {
                           </Text>
                         </View>
                       </View>
-                    </View>
+                      {isNavigating ? (
+                        <View className="absolute inset-0 items-center justify-center rounded-xl bg-white/60">
+                          <ActivityIndicator size="small" color="#22c55e" />
+                        </View>
+                      ) : null}
+                    </Pressable>
                   );
                 })
               )}

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authService } from '@/src/features/auth/auth.service';
 
 const menuItems = [
-  { key: 'commission-history', label: 'Lịch sử hoa hồng' },
+  { key: 'commission-history', label: 'Lịch sử chiết khấu' },
   { key: 'business-info', label: 'Thông tin doanh nghiệp' },
   { key: 'commission-policy', label: 'Chính sách hoa hồng' },
 ];

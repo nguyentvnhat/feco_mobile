@@ -1,7 +1,7 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { agentsService } from '@/src/features/agents';
 import type { ChildAgent } from '@/src/features/agents';
@@ -39,6 +39,36 @@ function withCurrencySuffix(value?: string | null, currency?: string | null) {
   if (/[đ₫]$/i.test(trimmed)) return trimmed;
   const normalizedCurrency = (currency ?? '').trim();
   return normalizedCurrency ? `${trimmed}${normalizedCurrency}` : `${trimmed}đ`;
+}
+
+function formatAgentAddress(agent: ChildAgent) {
+  const full = (agent.full_address || '').trim();
+  if (full) return full;
+
+  const parts = [agent.address, agent.ward, agent.city].map((part) => (part || '').trim()).filter(Boolean);
+  if (parts.length > 0) return parts.join(', ');
+
+  return (agent.region || '').trim() || '--';
+}
+
+function formatCallablePhone(phone?: string | null) {
+  const digits = (phone || '').replace(/\D/g, '');
+  return digits.length > 0 ? digits : null;
+}
+
+function AgentMetaRow({
+  icon,
+  children,
+}: {
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <View className="flex-row items-center gap-2.5">
+      <View className="w-[18px] items-center justify-center">{icon}</View>
+      <View className="min-w-0 flex-1">{children}</View>
+    </View>
+  );
 }
 
 function getOrderDaysAgoLabel(latestOrderAt?: string | null) {
@@ -168,13 +198,18 @@ export function AgentsScreen() {
           ) : (
             filteredAgents.map((agent) => {
               const orderDaysAgoLabel = getOrderDaysAgoLabel(agent.latest_order_at);
+              const callablePhone = formatCallablePhone(agent.phone);
+              const displayPhone = (agent.phone || '').trim() || '--';
+              const displayAddress = formatAgentAddress(agent);
 
               return (
-              <View key={agent.id} className="mb-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
-                <View className="flex-row items-start justify-between">
-                  <Text className="flex-1 text-base font-semibold text-slate-900">{agent.name || 'Đại lý'}</Text>
+              <View
+                key={agent.id}
+                className="mb-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
+                <View className="flex-row items-start justify-between gap-3">
+                  <Text className="min-w-0 flex-1 text-base font-semibold text-slate-900">{agent.name || 'Đại lý'}</Text>
                   <View
-                    className="rounded-full px-3 py-1"
+                    className="shrink-0 rounded-full px-3 py-1"
                     style={{ backgroundColor: isActiveStatus(agent.status) ? '#ECFDF5' : '#F1F5F9' }}>
                     <Text
                       className="text-xs font-semibold"
@@ -184,27 +219,57 @@ export function AgentsScreen() {
                   </View>
                 </View>
 
-                <View className="mt-2 flex-row items-center">
-                  <Ionicons name="location-sharp" size={14} color="#64748b" />
-                  <Text className="ml-1 text-sm text-slate-500">{[agent.ward, agent.city].filter(Boolean).join(', ') || '--'}</Text>
+                <View className="mt-3 gap-2">
+                  {callablePhone ? (
+                    <AgentMetaRow icon={<MaterialCommunityIcons name="phone-outline" size={16} color="#16a34a" />}>
+                      <Pressable
+                        className="self-start active:opacity-70"
+                        onPress={() => void Linking.openURL(`tel:${callablePhone}`)}>
+                        <Text className="text-sm font-medium text-green-600">{displayPhone}</Text>
+                      </Pressable>
+                    </AgentMetaRow>
+                  ) : (
+                    <AgentMetaRow icon={<MaterialCommunityIcons name="phone-outline" size={16} color="#94a3b8" />}>
+                      <Text className="text-sm text-slate-400">{displayPhone}</Text>
+                    </AgentMetaRow>
+                  )}
+                  <AgentMetaRow icon={<Ionicons name="location-sharp" size={16} color="#64748b" />}>
+                    <Text className="text-sm leading-5 text-slate-500">{displayAddress}</Text>
+                  </AgentMetaRow>
                 </View>
 
-                <View className="mt-3">
-                  <View className="flex-row items-center">
-                    <MaterialCommunityIcons name="cash-multiple" size={16} color="#22C55E" />
-                    <Text className="ml-2 text-xl font-bold text-green-500">
-                      {withCurrencySuffix(agent.total_revenue, agent.currency)}
-                    </Text>
-                  </View>
-                  <Text className="mt-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
-                    Số đơn: {agent.order_sold_count ?? 0}
+                <Pressable
+                  className="mt-3 border-t border-slate-100 pt-3 active:opacity-95"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(main)/agent-orders',
+                      params: {
+                        agentId: String(agent.id),
+                        agentName: agent.name || 'Đại lý',
+                      },
+                    })
+                  }>
+                  <AgentMetaRow icon={<MaterialCommunityIcons name="cash-multiple" size={16} color="#22C55E" />}>
+                    <View className="flex-row flex-wrap items-center gap-x-1.5">
+                      <Text className="text-xl font-bold leading-7 text-green-500">
+                        {withCurrencySuffix(agent.total_revenue, agent.currency)}
+                      </Text>
+                      <Text className="text-xs font-medium leading-7 text-slate-400">(doanh số trước thuế)</Text>
+                    </View>
+                  </AgentMetaRow>
+
+                  <Text className="mt-2 pl-[28px] text-sm text-slate-500">
+                    Số đơn: <Text className="font-semibold text-slate-700">{agent.order_sold_count ?? 0}</Text>
+                    {orderDaysAgoLabel ? (
+                      <Text className="text-amber-600"> ({orderDaysAgoLabel})</Text>
+                    ) : null}
                   </Text>
-                  {orderDaysAgoLabel ? (
-                    <Text className="mt-1 text-xs font-medium text-amber-600">
-                      {orderDaysAgoLabel}
-                    </Text>
-                  ) : null}
-                </View>
+
+                  <View className="mt-3 flex-row items-center justify-end gap-1">
+                    <Text className="text-sm font-semibold text-green-600">Xem đơn hàng</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={18} color="#16a34a" />
+                  </View>
+                </Pressable>
               </View>
             );
             })

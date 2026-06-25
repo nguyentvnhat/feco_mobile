@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ordersService } from '@/src/features/orders';
+import { formatOrderDateTime, getOrderStatusPresentation, ordersService } from '@/src/features/orders';
 import type { OrderDetailData, OrderDetailProduct } from '@/src/features/orders';
 
 function withCurrencySuffix(value?: string | null) {
@@ -21,21 +21,47 @@ function localizeUnit(unit?: string | null) {
 }
 
 export default function OrderDetailScreen() {
-  const params = useLocalSearchParams<{ id?: string | string[]; source?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    id?: string | string[];
+    source?: string | string[];
+    agentId?: string | string[];
+    agentName?: string | string[];
+    historySource?: string | string[];
+  }>();
   const [loading, setLoading] = useState(true);
   const [reorderLoading, setReorderLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderDetailData | null>(null);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
+  const historySource = Array.isArray(params.historySource) ? params.historySource[0] : params.historySource;
+  const agentId = Array.isArray(params.agentId) ? params.agentId[0] : params.agentId;
+  const agentName = Array.isArray(params.agentName) ? params.agentName[0] : params.agentName;
 
   function handleBack() {
     if (source === 'home') {
       router.replace('/(main)');
       return;
     }
+    if (source === 'commission-history') {
+      router.replace({
+        pathname: '/(main)/commission-history',
+        params: { source: historySource || 'account' },
+      });
+      return;
+    }
     if (source === 'orders') {
       router.replace('/(main)/orders');
+      return;
+    }
+    if (source === 'agent-orders' && agentId) {
+      router.replace({
+        pathname: '/(main)/agent-orders',
+        params: {
+          agentId,
+          agentName: agentName || 'Đại lý',
+        },
+      });
       return;
     }
     if (router.canGoBack()) {
@@ -114,6 +140,15 @@ export default function OrderDetailScreen() {
     const parsed = Number(raw);
     return Number.isFinite(parsed) && parsed > 0;
   }, [order?.discount_amount]);
+  const vatRateLabel = useMemo(() => {
+    const rate = order?.vat_rate_percent;
+    if (rate == null || !Number.isFinite(rate)) return '0';
+    return String(Number(rate.toFixed(2)));
+  }, [order?.vat_rate_percent]);
+  const statusPresentation = useMemo(() => {
+    if (!order) return null;
+    return getOrderStatusPresentation(order.order_status, order.order_label_status);
+  }, [order]);
   const normalizedOrderStatus = (order?.order_status || '').trim().toLowerCase();
   const hideCancelButton = normalizedOrderStatus === 'cancelled' || normalizedOrderStatus === 'returned';
 
@@ -238,13 +273,23 @@ export default function OrderDetailScreen() {
             <View className="mt-4 flex-row border-t border-slate-100 pt-3">
               <View className="w-2/5 pr-2">
                 <Text className="text-sm text-slate-400">Ngày đặt</Text>
-                <Text className="text-base font-semibold text-slate-900">
-                  {order?.order_date ? new Date(order.order_date).toLocaleString('vi-VN') : '--'}
-                </Text>
+                <Text className="text-base font-semibold text-slate-900">{formatOrderDateTime(order?.order_date)}</Text>
               </View>
               <View className="flex-1 pl-2">
                 <Text className="text-sm text-slate-400">Trạng thái</Text>
-                <Text className="text-base font-semibold text-slate-900">{order?.order_label_status || '--'}</Text>
+                {statusPresentation ? (
+                  <View
+                    className="mt-1 self-start rounded-md px-3 py-1"
+                    style={{ backgroundColor: statusPresentation.bgColor }}>
+                    <Text
+                      className="text-sm font-semibold"
+                      style={{ color: statusPresentation.textColor }}>
+                      {statusPresentation.label}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text className="mt-1 text-base font-semibold text-slate-900">--</Text>
+                )}
               </View>
             </View>
           </View>
@@ -311,7 +356,7 @@ export default function OrderDetailScreen() {
 
           <View className="mt-4 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
             <View className="flex-row items-center justify-between">
-              <Text className="text-base text-slate-400">Tổng tiền hàng</Text>
+              <Text className="text-base text-slate-400">Tạm tính</Text>
               <Text className="text-lg font-semibold text-slate-900">
                 {withCurrencySuffix(order?.subtotal_amount)}
               </Text>
@@ -324,10 +369,22 @@ export default function OrderDetailScreen() {
                 </Text>
               </View>
             ) : null}
+            <View className="mt-1 flex-row items-center justify-between">
+              <Text className="text-base text-slate-400">Giá tính VAT</Text>
+              <Text className="text-lg font-semibold text-slate-900">
+                {withCurrencySuffix(order?.vat_base ?? order?.net_amount)}
+              </Text>
+            </View>
+            <View className="mt-1 flex-row items-center justify-between">
+              <Text className="text-base text-slate-400">VAT {vatRateLabel}%</Text>
+              <Text className="text-lg font-semibold text-slate-900">
+                {order?.vat_amount?.trim() ? `+${withCurrencySuffix(order.vat_amount)}` : '--'}
+              </Text>
+            </View>
             <View className="mt-3 flex-row items-center justify-between border-t border-slate-100 pt-3">
               <Text className="text-base font-semibold text-slate-900">Tổng thanh toán</Text>
               <Text className="text-xl font-bold text-green-500">
-                {withCurrencySuffix(order?.net_amount)}
+                {withCurrencySuffix(order?.total_with_vat ?? order?.net_amount)}
               </Text>
             </View>
           </View>
