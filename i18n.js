@@ -17,6 +17,8 @@ if (!i18next.isInitialized) {
     resources,
     lng: 'vi',
     fallbackLng: 'vi',
+    supportedLngs: ['vi'],
+    nonExplicitSupportedLngs: false,
     compatibilityJSON: 'v4',
     interpolation: {
       escapeValue: false,

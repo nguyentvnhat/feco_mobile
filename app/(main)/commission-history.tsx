@@ -3,8 +3,10 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { appendCurrency, formatOrderDateTime, ordersService } from '@/src/features/orders';
 import type { CommissionHistoryEntry, CommissionHistorySummary } from '@/src/features/orders';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 type RewardRow = {
   id: string;
@@ -171,48 +173,40 @@ export default function CommissionHistoryScreen() {
     router.replace('/(main)/account');
   }
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadHistory() {
-      setLoading(true);
-      setError('');
-      setIsMonthOpen(false);
-      try {
-        const res = await ordersService.historyCommission(
-          viewAll ? { all: true } : { month: selectedMonth },
-        );
-        if (cancelled) return;
-        if (!res.success) {
-          setError(res.message || 'Không tải được lịch sử hoa hồng.');
-          setPeriodMonth('');
-          setSummary(null);
-          setRows([]);
-          return;
-        }
-
-        setPeriodMonth(res.data?.period_month ?? (viewAll ? null : selectedMonth));
-        setSummary(res.data?.summary ?? null);
-        setRows((res.data?.entries ?? []).map(mapEntryToRow));
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Không tải được lịch sử hoa hồng.');
-          setPeriodMonth('');
-          setSummary(null);
-          setRows([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+  const loadHistory = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    setIsMonthOpen(false);
+    try {
+      const res = await ordersService.historyCommission(
+        viewAll ? { all: true } : { month: selectedMonth },
+      );
+      if (!res.success) {
+        setError(toUserFacingMessage(res.message, 'Không tải được lịch sử hoa hồng.'));
+        setPeriodMonth('');
+        setSummary(null);
+        setRows([]);
+        return;
       }
-    }
 
-    void loadHistory();
-    return () => {
-      cancelled = true;
-    };
+      setPeriodMonth(res.data?.period_month ?? (viewAll ? null : selectedMonth));
+      setSummary(res.data?.summary ?? null);
+      setRows((res.data?.entries ?? []).map(mapEntryToRow));
+    } catch (e) {
+      setError(toUserFacingMessage(e, 'Không tải được lịch sử hoa hồng.'));
+      setPeriodMonth('');
+      setSummary(null);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
   }, [selectedMonth, viewAll]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  useRefetchOnReconnect(loadHistory);
 
   function pickMonth(value: string) {
     setSelectedMonth(value);

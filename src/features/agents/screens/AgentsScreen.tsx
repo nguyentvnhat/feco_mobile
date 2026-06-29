@@ -3,8 +3,10 @@ import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { agentsService } from '@/src/features/agents';
-import type { ChildAgent } from '@/src/features/agents';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
+import { agentsService } from '../agents.service';
+import type { ChildAgent } from '../agents.types';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 type StatusTab = {
   key: 'all' | 'active' | 'inactive';
@@ -92,40 +94,33 @@ export function AgentsScreen() {
   const [error, setError] = useState('');
   const [agents, setAgents] = useState<ChildAgent[]>([]);
 
+  const loadAgents = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await agentsService.listChildren();
+      if (!res.success) {
+        setError(toUserFacingMessage(res.message, 'Không tải được danh sách đại lý.'));
+        setAgents([]);
+        return;
+      }
+      setAgents(res.data?.agents ?? []);
+    } catch (e) {
+      setError(toUserFacingMessage(e, 'Không tải được danh sách đại lý.'));
+      setAgents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-
-      async function loadAgents() {
-        setLoading(true);
-        setError('');
-        try {
-          const res = await agentsService.listChildren();
-          if (cancelled) return;
-          if (!res.success) {
-            setError(res.message || 'Không tải được danh sách đại lý.');
-            setAgents([]);
-            return;
-          }
-          setAgents(res.data?.agents ?? []);
-        } catch (e) {
-          if (!cancelled) {
-            setError(e instanceof Error ? e.message : 'Không tải được danh sách đại lý.');
-            setAgents([]);
-          }
-        } finally {
-          if (!cancelled) {
-            setLoading(false);
-          }
-        }
-      }
-
+      setActiveTab('all');
       void loadAgents();
-      return () => {
-        cancelled = true;
-      };
-    }, []),
+    }, [loadAgents]),
   );
+
+  useRefetchOnReconnect(loadAgents);
 
   const activeCount = useMemo(() => agents.filter((a) => isActiveStatus(a.status)).length, [agents]);
   const inactiveCount = useMemo(() => agents.filter((a) => isInactiveStatus(a.status)).length, [agents]);

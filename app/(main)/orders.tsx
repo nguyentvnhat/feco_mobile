@@ -16,8 +16,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { appendCurrency, getOrderStatusPresentation, ordersService } from '@/src/features/orders';
 import type { OrderListItem, OrderStatusItem } from '@/src/features/orders';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 type StatusTab = {
   key: string;
@@ -81,7 +83,7 @@ export default function OrdersScreen() {
         : await ordersService.listMine(params);
 
       if (!ordersRes.success) {
-        throw new Error(ordersRes.message || t('orders.errors.loadFailed'));
+        throw new Error(toUserFacingMessage(ordersRes.message, t('orders.errors.loadFailed')));
       }
 
       const rows = ordersRes.data?.orders ?? [];
@@ -96,46 +98,39 @@ export default function OrdersScreen() {
     [debouncedSearch, t],
   );
 
+  const reloadOrders = useCallback(async () => {
+    setLoading(true);
+    setLoadingMore(false);
+    loadingMoreRef.current = false;
+    setError('');
+    setPage(1);
+    setHasMore(false);
+    setOrders([]);
+    userHasScrolledRef.current = false;
+
+    try {
+      const [, statusesRes] = await Promise.all([fetchOrdersPage(1, true), ordersService.statuses()]);
+      const statusTabs: StatusTab[] =
+        statusesRes.success && Array.isArray(statusesRes.data?.statuses)
+          ? statusesRes.data.statuses.map((s: OrderStatusItem) => ({ key: s.value, label: s.label }))
+          : [];
+      setTabs([{ key: 'all', label: t('orders.all') }, ...statusTabs]);
+    } catch (e) {
+      setError(toUserFacingMessage(e, t('orders.errors.loadFailed')));
+      setOrders([]);
+      setTabs([{ key: 'all', label: t('orders.all') }]);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchOrdersPage, t]);
+
   useEffect(() => {
     if (!isFocused) return;
-    let cancelled = false;
+    void reloadOrders();
+  }, [isFocused, debouncedSearch, reloadOrders]);
 
-    async function loadInitial() {
-      setLoading(true);
-      setLoadingMore(false);
-      loadingMoreRef.current = false;
-      setError('');
-      setPage(1);
-      setHasMore(false);
-      setOrders([]);
-      userHasScrolledRef.current = false;
-
-      try {
-        const [, statusesRes] = await Promise.all([fetchOrdersPage(1, true), ordersService.statuses()]);
-        if (cancelled) return;
-
-        const statusTabs: StatusTab[] =
-          statusesRes.success && Array.isArray(statusesRes.data?.statuses)
-            ? statusesRes.data.statuses.map((s: OrderStatusItem) => ({ key: s.value, label: s.label }))
-            : [];
-        setTabs([{ key: 'all', label: t('orders.all') }, ...statusTabs]);
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : t('orders.errors.loadFailed'));
-          setOrders([]);
-          setTabs([{ key: 'all', label: t('orders.all') }]);
-          setHasMore(false);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    void loadInitial();
-    return () => {
-      cancelled = true;
-    };
-  }, [isFocused, debouncedSearch, fetchOrdersPage, t]);
+  useRefetchOnReconnect(reloadOrders);
 
   const filteredOrders = useMemo(() => {
     if (activeTab === 'all') return orders;
@@ -151,7 +146,7 @@ export default function OrdersScreen() {
     try {
       await fetchOrdersPage(page + 1, false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('orders.errors.loadFailed'));
+      setError(toUserFacingMessage(e, t('orders.errors.loadFailed')));
     } finally {
       loadingMoreRef.current = false;
       setLoadingMore(false);

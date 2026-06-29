@@ -5,9 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { authService } from '@/src/features/auth/auth.service';
 import { mapOrderToRecentRow, ordersService } from '@/src/features/orders';
 import type { RecentOrderRow } from '@/src/features/orders';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 import { Spacings } from '@/src/theme';
 
 const ORDERS_LIMIT = 5;
@@ -28,62 +30,54 @@ export default function HomeScreen() {
   const [monthRevenue, setMonthRevenue] = useState('--');
   const [monthCommission, setMonthCommission] = useState('--');
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-
-      async function loadOrders() {
-        setOrdersLoading(true);
-        setOrdersError('');
-        try {
-          const [ordersRes, meRes] = await Promise.all([
-            ordersService.listMine({ limit: ORDERS_LIMIT }),
-            authService.me(),
-          ]);
-          if (cancelled) return;
-          if (meRes.success) {
-            const agent = meRes.data?.agent;
-            const rawName = agent?.name;
-            const normalizedName = typeof rawName === 'string' ? rawName.trim() : '';
-            setAgentName(normalizedName || 'FECO X3');
-            const rev = agent?.month_revenue;
-            const com = agent?.month_commission;
-            setMonthRevenue(typeof rev === 'string' && rev.trim() ? withCurrencySuffix(rev) : '--');
-            setMonthCommission(typeof com === 'string' && com.trim() ? withCurrencySuffix(com) : '--');
-          } else {
-            setAgentName('FECO X3');
-            setMonthRevenue('--');
-            setMonthCommission('--');
-          }
-
-          if (!ordersRes.success) {
-            setOrdersError(ordersRes.message || 'Không tải được đơn hàng.');
-            setRecentOrders([]);
-            return;
-          }
-          const rows = (ordersRes.data?.orders ?? []).map(mapOrderToRecentRow);
-          setRecentOrders(rows);
-        } catch (e) {
-          if (!cancelled) {
-            setOrdersError(e instanceof Error ? e.message : 'Không tải được đơn hàng.');
-            setRecentOrders([]);
-            setAgentName('FECO X3');
-            setMonthRevenue('--');
-            setMonthCommission('--');
-          }
-        } finally {
-          if (!cancelled) {
-            setOrdersLoading(false);
-          }
-        }
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    setOrdersError('');
+    try {
+      const [ordersRes, meRes] = await Promise.all([
+        ordersService.listMine({ limit: ORDERS_LIMIT }),
+        authService.me(),
+      ]);
+      if (meRes.success) {
+        const agent = meRes.data?.agent;
+        const rawName = agent?.name;
+        const normalizedName = typeof rawName === 'string' ? rawName.trim() : '';
+        setAgentName(normalizedName || 'FECO X3');
+        const rev = agent?.month_revenue;
+        const com = agent?.month_commission;
+        setMonthRevenue(typeof rev === 'string' && rev.trim() ? withCurrencySuffix(rev) : '--');
+        setMonthCommission(typeof com === 'string' && com.trim() ? withCurrencySuffix(com) : '--');
+      } else {
+        setAgentName('FECO X3');
+        setMonthRevenue('--');
+        setMonthCommission('--');
       }
 
+      if (!ordersRes.success) {
+        setOrdersError(toUserFacingMessage(ordersRes.message, 'Không tải được đơn hàng.'));
+        setRecentOrders([]);
+        return;
+      }
+      const rows = (ordersRes.data?.orders ?? []).map(mapOrderToRecentRow);
+      setRecentOrders(rows);
+    } catch (e) {
+      setOrdersError(toUserFacingMessage(e, 'Không tải được đơn hàng.'));
+      setRecentOrders([]);
+      setAgentName('FECO X3');
+      setMonthRevenue('--');
+      setMonthCommission('--');
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
       void loadOrders();
-      return () => {
-        cancelled = true;
-      };
-    }, []),
+    }, [loadOrders]),
   );
+
+  useRefetchOnReconnect(loadOrders);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={['top']}>
@@ -113,8 +107,7 @@ export default function HomeScreen() {
             </View>
 
             <View style={{ marginTop: Spacings.xxl }}>
-              <Text className="text-base font-semibold text-slate-900">{t('home.shortcuts')}</Text>
-              <View className="mt-4 flex-row justify-between">
+              <View className="flex-row justify-between">
                 {[
                   { id: 'create-order', label: t('home.shortcutCreateOrder'), icon: 'plus', color: '#22C55E', bg: '#E9F9EF' },
                   { id: 'orders', label: t('home.shortcutOrders'), icon: 'clipboard-text-outline', color: '#F97316', bg: '#FFF2E8' },

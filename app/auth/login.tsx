@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -14,7 +14,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { authService, useAuth } from '@/src/features/auth';
+import { isConnectivityErrorMessage } from '@/src/lib/network';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 export default function LoginScreen() {
   const { setSession } = useAuth();
@@ -26,6 +29,16 @@ export default function LoginScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const clearConnectivityError = useCallback(() => {
+    setFormError((prev) => (isConnectivityErrorMessage(prev) ? '' : prev));
+  }, []);
+
+  useRefetchOnReconnect(clearConnectivityError);
+
+  function toFormErrorMessage(message?: string) {
+    return toUserFacingMessage(message, t('auth.login.errors.signInFailed'));
+  }
 
   async function handleSignIn() {
     setLoginError('');
@@ -56,7 +69,7 @@ export default function LoginScreen() {
         return;
       }
 
-      setFormError(response.message || t('auth.login.errors.signInFailed'));
+      setFormError(toFormErrorMessage(response.message));
     } catch {
       setFormError(t('auth.login.errors.unknown'));
     } finally {

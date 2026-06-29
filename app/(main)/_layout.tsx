@@ -1,8 +1,9 @@
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import { Redirect, Tabs } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { authService } from '@/src/features/auth/auth.service';
 import { useAuth } from '@/src/features/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,31 +13,25 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const [canAccessAgents, setCanAccessAgents] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadMe() {
-      if (!token) {
-        setCanAccessAgents(null);
-        return;
-      }
-      try {
-        const res = await authService.me();
-        if (cancelled) return;
-        const showAgentsTab = res.data?.agent?.has_agent_children === true;
-        setCanAccessAgents(showAgentsTab);
-      } catch {
-        if (!cancelled) {
-          setCanAccessAgents(false);
-        }
-      }
+  const loadMe = useCallback(async () => {
+    if (!token) {
+      setCanAccessAgents(null);
+      return;
     }
-
-    void loadMe();
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const res = await authService.me();
+      const showAgentsTab = res.data?.agent?.has_agent_children === true;
+      setCanAccessAgents(showAgentsTab);
+    } catch {
+      setCanAccessAgents(false);
+    }
   }, [token]);
+
+  useEffect(() => {
+    void loadMe();
+  }, [loadMe]);
+
+  useRefetchOnReconnect(loadMe);
 
   if (isLoading) {
     return null;

@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { authService } from '@/src/features/auth/auth.service';
+import type { MeResponse } from '@/src/features/auth/auth.types';
 import type {
   CloneOrderTemplatePayload,
   CreateMetadataProduct,
@@ -23,6 +25,7 @@ import type {
   PreviewOrderSummary,
 } from '@/src/features/orders';
 import { appendCurrency, ordersService } from '@/src/features/orders';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 /** Ngày đặt theo lịch Việt Nam (không dùng UTC như toISOString). */
 function orderDateYmdVietnamNow() {
@@ -63,6 +66,106 @@ function pickFirstError(errors: Record<string, string>, key: string) {
   return errors[key] || '';
 }
 
+function normalizeLocationName(value: string) {
+  const stripped = value
+    .trim()
+    .replace(/^(tinh|thanh pho|quan|huyen|thi xa|phuong|xa|thi tran)\s+/i, '');
+  return stripped
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function locationCodesEqual(a: string, b: string) {
+  const left = String(a ?? '').trim();
+  const right = String(b ?? '').trim();
+  if (!left || !right) return false;
+  return left === right || normalizeLocationCode(left) === normalizeLocationCode(right);
+}
+
+function findProvinceByCode(provinces: CreateMetadataProvince[], code: string) {
+  const trimmed = code.trim();
+  if (!trimmed) return null;
+  return provinces.find((province) => locationCodesEqual(province.code, trimmed)) ?? null;
+}
+
+function findWardByCode(wards: CreateMetadataWard[], provinceCode: string, wardCode: string) {
+  const trimmedWard = wardCode.trim();
+  if (!trimmedWard || !provinceCode.trim()) return null;
+  return (
+    wards.find(
+      (ward) =>
+        locationCodesEqual(ward.province_code, provinceCode) && locationCodesEqual(ward.code, trimmedWard),
+    ) ?? null
+  );
+}
+
+function findProvinceMatch(provinces: CreateMetadataProvince[], cityName: string) {
+  const target = normalizeLocationName(cityName);
+  if (!target) return null;
+  return (
+    provinces.find((province) => {
+      const name = normalizeLocationName(province.name || '');
+      const label = normalizeLocationName(province.label || '');
+      return name === target || label === target || name.includes(target) || target.includes(name);
+    }) ?? null
+  );
+}
+
+function findWardMatch(wards: CreateMetadataWard[], provinceCode: string, wardName: string) {
+  const target = normalizeLocationName(wardName);
+  if (!target || !provinceCode) return null;
+  return (
+    wards.find((ward) => {
+      if (!locationCodesEqual(ward.province_code, provinceCode)) return false;
+      const name = normalizeLocationName(ward.name || '');
+      const label = normalizeLocationName(ward.label || '');
+      return name === target || label === target || name.includes(target) || target.includes(name);
+    }) ?? null
+  );
+}
+
+function buildAgentOrdererDefaults(
+  user: MeResponse['data']['user'],
+  agent: NonNullable<MeResponse['data']['agent']>,
+  provinces: CreateMetadataProvince[],
+  wards: CreateMetadataWard[],
+) {
+  const ordererName = (agent.business_name || user.name || '').trim();
+  const ordererPhone = (user.phone || '').trim();
+  const address = (agent.address || '').trim();
+
+  let provinceCode = (agent.province_code || '').trim();
+  let provinceLabel = '';
+  let wardCode = (agent.ward_code || '').trim();
+  let wardLabel = '';
+
+  const matchedProvince =
+    (provinceCode ? findProvinceByCode(provinces, provinceCode) : null) ??
+    (agent.city ? findProvinceMatch(provinces, agent.city) : null);
+
+  if (matchedProvince) {
+    provinceCode = matchedProvince.code;
+    provinceLabel = matchedProvince.name || matchedProvince.label;
+  } else {
+    provinceCode = '';
+  }
+
+  if (provinceCode) {
+    const matchedWard =
+      (wardCode ? findWardByCode(wards, provinceCode, wardCode) : null) ??
+      (agent.ward ? findWardMatch(wards, provinceCode, agent.ward) : null);
+    if (matchedWard) {
+      wardCode = matchedWard.code;
+      wardLabel = matchedWard.name || matchedWard.label;
+    } else {
+      wardCode = '';
+    }
+  }
+
+  return { ordererName, ordererPhone, address, provinceCode, provinceLabel, wardCode, wardLabel };
+}
+
 function extractNumericPrice(product: CreateMetadataProduct | null) {
   if (!product) return 0;
   const productRecord = product as unknown as Record<string, unknown>;
@@ -96,17 +199,16 @@ const defaultTabBarStyle = {
 } as const;
 
 export default function CreateOrderScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ clone_payload?: string | string[]; clone_source_order_no?: string | string[] }>();
   const insets = useSafeAreaInsets();
 
   const formatMoney = useCallback(
     (value: number) => {
-      const locale = i18n.language === 'en' ? 'en-US' : 'vi-VN';
-      const formatted = new Intl.NumberFormat(locale).format(value);
+      const formatted = new Intl.NumberFormat('vi-VN').format(value);
       return t('createOrder.moneyFormat', { value: formatted });
     },
-    [i18n.language, t],
+    [t],
   );
 
   const localizeUnitDisplay = useCallback(
@@ -273,17 +375,18 @@ export default function CreateOrderScreen() {
     setFieldErrors({});
   }, []);
 
-  const loadScreen = useCallback(async () => {
+  const loadScreen = useCallback(async (options?: { prefillAgent?: boolean }) => {
+    const prefillAgent = options?.prefillAgent ?? false;
     setBootLoading(true);
     setBootError('');
     try {
       const [metaRes, meRes] = await Promise.all([ordersService.fetchCreateMetadata(), authService.me()]);
       if (!metaRes.success) {
-        setBootError(metaRes.message || t('createOrder.errors.loadMeta'));
+        setBootError(toUserFacingMessage(metaRes.message, t('createOrder.errors.loadMeta')));
         return;
       }
       if (!meRes.success || !meRes.data?.user?.id) {
-        setBootError(meRes.message || t('createOrder.errors.loadSeller'));
+        setBootError(toUserFacingMessage(meRes.message, t('createOrder.errors.loadSeller')));
         return;
       }
       if (!meRes.data?.agent?.id) {
@@ -302,8 +405,16 @@ export default function CreateOrderScreen() {
         const matchedProduct = firstProduct
           ? (metaRes.data?.products ?? []).find((p) => p.id === firstProduct.product_id) ?? null
           : null;
-        const province = (metaRes.data?.provinces ?? []).find((p) => p.code === clonePayload.customer_province_code);
-        const ward = (metaRes.data?.wards ?? []).find((w) => w.code === clonePayload.customer_ward_code);
+        const province =
+          findProvinceByCode(metaRes.data?.provinces ?? [], clonePayload.customer_province_code) ??
+          (metaRes.data?.provinces ?? []).find((p) => p.code === clonePayload.customer_province_code);
+        const ward =
+          findWardByCode(
+            metaRes.data?.wards ?? [],
+            clonePayload.customer_province_code,
+            clonePayload.customer_ward_code,
+          ) ??
+          (metaRes.data?.wards ?? []).find((w) => w.code === clonePayload.customer_ward_code);
 
         setSelectedProduct(matchedProduct);
         setQuantity(String(Math.max(1, Math.round(firstProduct?.quantity ?? 1))));
@@ -322,8 +433,28 @@ export default function CreateOrderScreen() {
         setSelectedProduct(loadedProducts[0]);
         setIsProductOpen(false);
       }
+
+      if (prefillAgent && !clonePayload && meRes.data?.agent) {
+        const defaults = buildAgentOrdererDefaults(
+          meRes.data.user,
+          meRes.data.agent,
+          metaRes.data?.provinces ?? [],
+          metaRes.data?.wards ?? [],
+        );
+        if (defaults.ordererName) setOrdererName(defaults.ordererName);
+        if (defaults.ordererPhone) setOrdererPhone(defaults.ordererPhone);
+        if (defaults.address) setAddress(defaults.address);
+        if (defaults.provinceCode) {
+          setProvinceCode(defaults.provinceCode);
+          setProvinceLabel(defaults.provinceLabel);
+        }
+        if (defaults.wardCode) {
+          setWardCode(defaults.wardCode);
+          setWardLabel(defaults.wardLabel);
+        }
+      }
     } catch (e) {
-      setBootError(e instanceof Error ? e.message : t('createOrder.errors.loadMeta'));
+      setBootError(toUserFacingMessage(e, t('createOrder.errors.loadMeta')));
     } finally {
       setBootLoading(false);
     }
@@ -335,9 +466,11 @@ export default function CreateOrderScreen() {
       setSubmitting(false);
       resetForm();
       formScrollRef.current?.scrollTo({ y: 0, animated: false });
-      void loadScreen();
+      void loadScreen({ prefillAgent: true });
     }, [loadScreen, resetForm]),
   );
+
+  useRefetchOnReconnect(() => void loadScreen({ prefillAgent: false }));
 
   const isSingleProductCatalog = products.length === 1;
   const singleCatalogProduct = isSingleProductCatalog ? products[0] : null;
@@ -380,12 +513,12 @@ export default function CreateOrderScreen() {
             setPreviewError('');
           } else {
             setPreviewSummary(null);
-            setPreviewError(res.message?.trim() || t('createOrder.errors.previewFailed'));
+            setPreviewError(toUserFacingMessage(res.message, t('createOrder.errors.previewFailed')));
           }
         } catch (e) {
           if (previewRoundRef.current !== round) return;
           setPreviewSummary(null);
-          setPreviewError(e instanceof Error ? e.message : t('createOrder.errors.previewFailed'));
+          setPreviewError(toUserFacingMessage(e, t('createOrder.errors.previewFailed')));
         } finally {
           if (previewRoundRef.current === round) {
             setPreviewLoading(false);
@@ -546,7 +679,7 @@ export default function CreateOrderScreen() {
       if (!res.success) {
         Alert.alert(
           t('createOrder.errors.createFailed'),
-          res.message || t('createOrder.errors.createFailed'),
+          toUserFacingMessage(res.message, t('createOrder.errors.createFailed')),
         );
         return;
       }
@@ -566,7 +699,7 @@ export default function CreateOrderScreen() {
         },
       ]);
     } catch (e) {
-      const fallbackMessage = e instanceof Error ? e.message : t('createOrder.errors.createFailed');
+      const fallbackMessage = toUserFacingMessage(e, t('createOrder.errors.createFailed'));
       const apiError = e as Error & { fieldErrors?: Record<string, string[]> };
       const rawFieldErrors = apiError.fieldErrors ?? {};
       const nextFieldErrors: Record<string, string> = {};
@@ -642,12 +775,7 @@ export default function CreateOrderScreen() {
                   </Text>
                   {isSingleProductCatalog && singleCatalogProduct ? (
                     <View className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3.5">
-                      <Text className="text-base font-medium text-slate-900">
-                        {singleCatalogProduct.name} ({singleCatalogProduct.sku})
-                      </Text>
-                      <Text className="mt-0.5 text-sm text-slate-500">
-                        {localizeUnitDisplay(singleCatalogProduct.sale_unit ?? 'box')}
-                      </Text>
+                      <Text className="text-base font-medium text-slate-900">{singleCatalogProduct.name}</Text>
                     </View>
                   ) : (
                     <>
@@ -659,7 +787,7 @@ export default function CreateOrderScreen() {
                           setIsWardOpen(false);
                         }}>
                         <Text className={`flex-1 pr-2 text-base ${selectedProduct ? 'text-slate-900' : 'text-slate-400'}`}>
-                          {selectedProduct ? `${selectedProduct.name} (${selectedProduct.sku})` : t('createOrder.selectProductPlaceholder')}
+                          {selectedProduct ? selectedProduct.name : t('createOrder.selectProductPlaceholder')}
                         </Text>
                         <MaterialCommunityIcons
                           name={isProductOpen ? 'chevron-up' : 'chevron-down'}
@@ -686,9 +814,6 @@ export default function CreateOrderScreen() {
                                   className="border-b border-slate-200 px-3 py-3 active:bg-slate-100"
                                   onPress={() => pickProduct(item)}>
                                   <Text className="text-base font-medium text-slate-900">{item.name}</Text>
-                                  <Text className="text-sm text-slate-500">
-                                    {item.sku} · {localizeUnitDisplay(item.sale_unit ?? 'box')}
-                                  </Text>
                                 </Pressable>
                               ))
                             )}

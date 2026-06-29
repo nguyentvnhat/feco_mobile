@@ -28,6 +28,11 @@ export type MeResponse = {
       name?: string | null;
       logo_path?: string | null;
       full_address?: string | null;
+      address?: string | null;
+      city?: string | null;
+      ward?: string | null;
+      province_code?: string | null;
+      ward_code?: string | null;
       agent_type?: {
         id?: number | null;
         code?: string | null;

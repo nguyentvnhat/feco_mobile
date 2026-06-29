@@ -62,6 +62,19 @@ export function getIsOnline(): boolean {
   return !isOffline(snapshot);
 }
 
+export function isConnectivityErrorMessage(message: string): boolean {
+  const m = message.trim();
+  if (!m) return false;
+  return (
+    m === 'No internet connection' ||
+    m === 'Không có kết nối mạng' ||
+    m === 'Network request failed' ||
+    m === 'Failed to fetch' ||
+    m === 'Yêu cầu quá thời gian chờ. Vui lòng thử lại.' ||
+    m.includes('Không kết nối được máy chủ')
+  );
+}
+
 /** Runs when connectivity goes from offline → online (not on cold start). */
 export function onConnectionRestored(listener: () => void) {
   restoredListeners.add(listener);

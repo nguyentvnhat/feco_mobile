@@ -14,9 +14,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { agentsService } from '@/src/features/agents';
 import { appendCurrency, getOrderStatusPresentation } from '@/src/features/orders';
 import type { OrderListItem } from '@/src/features/orders';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 const PAGE_SIZE = 10;
 
@@ -74,7 +76,7 @@ export default function AgentOrdersScreen() {
       });
 
       if (!ordersRes.success) {
-        throw new Error(ordersRes.message || 'Không tải được danh sách đơn hàng.');
+        throw new Error(toUserFacingMessage(ordersRes.message, 'Không tải được danh sách đơn hàng.'));
       }
 
       const rows = ordersRes.data?.orders ?? [];
@@ -87,38 +89,33 @@ export default function AgentOrdersScreen() {
     [agentId, debouncedSearch],
   );
 
+  const reloadOrders = useCallback(async () => {
+    setLoading(true);
+    setLoadingMore(false);
+    loadingMoreRef.current = false;
+    setError('');
+    setPage(1);
+    setHasMore(false);
+    setOrders([]);
+    userHasScrolledRef.current = false;
+
+    try {
+      await fetchOrdersPage(1, true);
+    } catch (e) {
+      setError(toUserFacingMessage(e, 'Không tải được danh sách đơn hàng.'));
+      setOrders([]);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchOrdersPage]);
+
   useEffect(() => {
     if (!isFocused) return;
-    let cancelled = false;
+    void reloadOrders();
+  }, [isFocused, debouncedSearch, reloadOrders]);
 
-    async function loadInitial() {
-      setLoading(true);
-      setLoadingMore(false);
-      loadingMoreRef.current = false;
-      setError('');
-      setPage(1);
-      setHasMore(false);
-      setOrders([]);
-      userHasScrolledRef.current = false;
-
-      try {
-        await fetchOrdersPage(1, true);
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Không tải được danh sách đơn hàng.');
-          setOrders([]);
-          setHasMore(false);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    void loadInitial();
-    return () => {
-      cancelled = true;
-    };
-  }, [isFocused, debouncedSearch, fetchOrdersPage]);
+  useRefetchOnReconnect(reloadOrders);
 
   const handleLoadMore = useCallback(async () => {
     if (loading || loadingMoreRef.current || !hasMore) return;
@@ -129,7 +126,7 @@ export default function AgentOrdersScreen() {
     try {
       await fetchOrdersPage(page + 1, false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Không tải được danh sách đơn hàng.');
+      setError(toUserFacingMessage(e, 'Không tải được danh sách đơn hàng.'));
     } finally {
       loadingMoreRef.current = false;
       setLoadingMore(false);

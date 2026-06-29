@@ -3,8 +3,10 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { appendCurrency, formatOrderDateTime, ordersService } from '@/src/features/orders';
 import type { CommissionHistoryEntry, CommissionHistorySummary } from '@/src/features/orders';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 type RewardRow = {
   id: string;
@@ -173,48 +175,40 @@ export default function DiscountHistoryScreen() {
     router.replace('/(main)/account');
   }
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadHistory() {
-      setLoading(true);
-      setError('');
-      setIsMonthOpen(false);
-      try {
-        const res = await ordersService.historyDiscount(
-          viewAll ? { all: true } : { month: selectedMonth },
-        );
-        if (cancelled) return;
-        if (!res.success) {
-          setError(res.message || 'Không tải được lịch sử chiết khấu.');
-          setPeriodMonth('');
-          setSummary(null);
-          setRows([]);
-          return;
-        }
-
-        setPeriodMonth(res.data?.period_month ?? (viewAll ? null : selectedMonth));
-        setSummary(res.data?.summary ?? null);
-        setRows((res.data?.entries ?? []).map(mapEntryToRow));
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Không tải được lịch sử chiết khấu.');
-          setPeriodMonth('');
-          setSummary(null);
-          setRows([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+  const loadHistory = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    setIsMonthOpen(false);
+    try {
+      const res = await ordersService.historyDiscount(
+        viewAll ? { all: true } : { month: selectedMonth },
+      );
+      if (!res.success) {
+        setError(toUserFacingMessage(res.message, 'Không tải được lịch sử chiết khấu.'));
+        setPeriodMonth('');
+        setSummary(null);
+        setRows([]);
+        return;
       }
-    }
 
-    void loadHistory();
-    return () => {
-      cancelled = true;
-    };
+      setPeriodMonth(res.data?.period_month ?? (viewAll ? null : selectedMonth));
+      setSummary(res.data?.summary ?? null);
+      setRows((res.data?.entries ?? []).map(mapEntryToRow));
+    } catch (e) {
+      setError(toUserFacingMessage(e, 'Không tải được lịch sử chiết khấu.'));
+      setPeriodMonth('');
+      setSummary(null);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
   }, [selectedMonth, viewAll]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  useRefetchOnReconnect(loadHistory);
 
   function pickMonth(value: string) {
     setSelectedMonth(value);
@@ -312,7 +306,14 @@ export default function DiscountHistoryScreen() {
                   <View className="h-28 w-28 items-center justify-center rounded-full bg-green-50">
                     <MaterialCommunityIcons name="percent-outline" size={42} color="#22c55e" />
                   </View>
-                  <Text className="mt-3 text-center text-sm text-slate-500">Hiện chưa có lịch sử chiết khấu.</Text>
+                  <Text className="mt-3 text-center text-sm font-medium text-slate-500">
+                    Bạn chưa có đơn hàng tháng này
+                  </Text>
+                  <Pressable
+                    className="mt-5 rounded-xl bg-green-500 px-6 py-3 active:bg-green-600"
+                    onPress={() => router.push('/(main)/create-order')}>
+                    <Text className="text-base font-semibold text-white">Tạo đơn ngay</Text>
+                  </Pressable>
                 </View>
               ) : (
                 rows.map((item) => {

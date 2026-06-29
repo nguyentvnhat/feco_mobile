@@ -1,5 +1,6 @@
 import { api } from '@/src/lib/api';
 import { clearAllSession } from '@/src/lib/secure-session';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 import type { LoginPayload, LoginResponse, MeResponse } from './auth.types';
 
@@ -72,17 +73,9 @@ export const authService = {
         refreshToken: refresh,
       };
     } catch (error) {
-      const fallbackMessage = 'Đăng nhập thất bại. Vui lòng thử lại.';
-      const rawMessage = error instanceof Error ? error.message.trim() : '';
-      const isGenericNetworkError =
-        rawMessage === 'Request failed' ||
-        rawMessage === 'Network request failed' ||
-        rawMessage === 'Failed to fetch' ||
-        rawMessage.startsWith('Request failed (');
-
       return {
         success: false,
-        message: rawMessage && !isGenericNetworkError ? rawMessage : fallbackMessage,
+        message: toUserFacingMessage(error, 'Đăng nhập thất bại. Vui lòng thử lại.'),
       };
     }
   },

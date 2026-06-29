@@ -1,9 +1,11 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { authService } from '@/src/features/auth/auth.service';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 const menuItems = [
   { key: 'commission-history', label: 'Lịch sử hoa hồng' },
@@ -23,30 +25,29 @@ export default function AccountRoute() {
   const [address, setAddress] = useState('---');
   const [logoPath, setLogoPath] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
-    async function loadMe() {
-      try {
-        const response = await authService.me();
-        if (!mounted || !response.success) return;
-        const user = response.data?.user;
-        const agent = response.data?.agent;
-        setName(agent?.business_name || user?.name || 'FECO X3');
-        setRoleText(agent?.name ? `${agent.name}` : 'Đại lý chính thức');
-        setAgentCode(agent?.code || (agent?.id ? `ID-${agent.id}` : '---'));
-        setPhone(user?.phone || '---');
-        setEmail(user?.email || '---');
-        setAddress(agent?.full_address || '---');
-        setLogoPath(agent?.logo_path || null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+  const loadMe = useCallback(async () => {
+    try {
+      const response = await authService.me();
+      if (!response.success) return;
+      const user = response.data?.user;
+      const agent = response.data?.agent;
+      setName(agent?.business_name || user?.name || 'FECO X3');
+      setRoleText(agent?.name ? `${agent.name}` : 'Đại lý chính thức');
+      setAgentCode(agent?.code || (agent?.id ? `ID-${agent.id}` : '---'));
+      setPhone(user?.phone || '---');
+      setEmail(user?.email || '---');
+      setAddress(agent?.full_address || '---');
+      setLogoPath(agent?.logo_path || null);
+    } finally {
+      setLoading(false);
     }
-    void loadMe();
-    return () => {
-      mounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadMe();
+  }, [loadMe]);
+
+  useRefetchOnReconnect(loadMe);
 
   const displayName = useMemo(() => name || 'FECO X3', [name]);
 
@@ -55,7 +56,7 @@ export default function AccountRoute() {
     try {
       const result = await authService.logout();
       if (!result.success) {
-        Alert.alert('Đăng xuất thất bại', result.message || 'Vui lòng thử lại.');
+        Alert.alert('Đăng xuất thất bại', toUserFacingMessage(result.message, 'Vui lòng thử lại.'));
         return;
       }
       router.replace('/auth/login');
@@ -119,7 +120,7 @@ export default function AccountRoute() {
               <Feather name="mail" size={18} color="#22c55e" />
             </View>
             <View className="ml-3">
-              <Text className="text-sm text-slate-400">Email</Text>
+              <Text className="text-sm text-slate-400">Thư điện tử</Text>
               <Text className="text-base font-semibold text-slate-800">{email}</Text>
             </View>
           </View>

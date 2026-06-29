@@ -12,7 +12,7 @@ const REQUEST_TIMEOUT_MS = 10_000;
 export class NetworkOfflineError extends Error {
   readonly code = 'NETWORK_OFFLINE' as const;
 
-  constructor(message = 'No internet connection') {
+  constructor(message = 'Không có kết nối mạng') {
     super(message);
     this.name = 'NetworkOfflineError';
     Object.setPrototypeOf(this, new.target.prototype);
@@ -32,7 +32,7 @@ export class ServerUnreachableError extends Error {
 export class RequestTimeoutError extends Error {
   readonly code = 'TIMEOUT' as const;
 
-  constructor(message = 'Request timed out') {
+  constructor(message = 'Yêu cầu quá thời gian chờ. Vui lòng thử lại.') {
     super(message);
     this.name = 'RequestTimeoutError';
     Object.setPrototypeOf(this, new.target.prototype);
@@ -74,7 +74,7 @@ function toRequestError(error: AxiosError) {
   const status = error.response?.status;
   const data = error.response?.data;
   const serverMessage = extractErrorMessage(data);
-  const fallbackMessage = status ? `Request failed (${status})` : 'Request failed';
+  const fallbackMessage = status ? `Yêu cầu thất bại (${status})` : 'Yêu cầu thất bại';
   const requestError = new Error(serverMessage || fallbackMessage) as Error & {
     status?: number;
     responseData?: unknown;

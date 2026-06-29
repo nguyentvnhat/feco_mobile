@@ -1,11 +1,13 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { formatOrderDateTime, getOrderStatusPresentation, ordersService } from '@/src/features/orders';
 import type { OrderDetailData, OrderDetailProduct } from '@/src/features/orders';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 function withCurrencySuffix(value?: string | null) {
   if (!value) return '--';
@@ -78,45 +80,38 @@ export default function OrderDetailScreen() {
     router.replace('/(main)');
   }
 
-  useEffect(() => {
-    let cancelled = false;
+  const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
 
-    async function loadDetail() {
-      const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
-      if (!orderId) {
-        setError('Thiếu mã đơn hàng.');
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError('');
-      try {
-        const detailRes = await ordersService.detail(orderId);
-        if (cancelled) return;
-        if (!detailRes.success) {
-          setError(detailRes.message || 'Không tải được chi tiết đơn hàng.');
-          setOrder(null);
-          return;
-        }
-        setOrder(detailRes.data);
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Không tải được chi tiết đơn hàng.');
-          setOrder(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+  const loadDetail = useCallback(async () => {
+    if (!orderId) {
+      setError('Thiếu mã đơn hàng.');
+      setLoading(false);
+      return;
     }
 
+    setLoading(true);
+    setError('');
+    try {
+      const detailRes = await ordersService.detail(orderId);
+      if (!detailRes.success) {
+        setError(toUserFacingMessage(detailRes.message, 'Không tải được chi tiết đơn hàng.'));
+        setOrder(null);
+        return;
+      }
+      setOrder(detailRes.data);
+    } catch (e) {
+      setError(toUserFacingMessage(e, 'Không tải được chi tiết đơn hàng.'));
+      setOrder(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [orderId]);
+
+  useEffect(() => {
     void loadDetail();
-    return () => {
-      cancelled = true;
-    };
-  }, [params.id]);
+  }, [loadDetail]);
+
+  useRefetchOnReconnect(loadDetail);
 
   const products = useMemo<OrderDetailProduct[]>(() => order?.products ?? [], [order]);
   const hasInvoiceFile = order?.has_invoice_file === true;
@@ -157,10 +152,7 @@ export default function OrderDetailScreen() {
     return getOrderStatusPresentation(order.order_status, order.order_label_status);
   }, [order]);
   const normalizedOrderStatus = (order?.order_status || '').trim().toLowerCase();
-  const hideCancelButton =
-    normalizedOrderStatus !== 'new' ||
-    normalizedOrderStatus === 'cancelled' ||
-    normalizedOrderStatus === 'returned';
+  const hideCancelButton = normalizedOrderStatus !== 'new';
 
   async function handleReorder() {
     const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -170,7 +162,7 @@ export default function OrderDetailScreen() {
     try {
       const res = await ordersService.cloneTemplate(orderId);
       if (!res.success || !res.data?.clone_payload) {
-        Alert.alert('Không thể đặt lại', res.message || 'Không lấy được dữ liệu đơn hàng để đặt lại.');
+        Alert.alert('Không thể đặt lại', toUserFacingMessage(res.message, 'Không lấy được dữ liệu đơn hàng để đặt lại.'));
         return;
       }
 
@@ -184,7 +176,7 @@ export default function OrderDetailScreen() {
     } catch (e) {
       Alert.alert(
         'Không thể đặt lại',
-        e instanceof Error ? e.message : 'Không lấy được dữ liệu đơn hàng để đặt lại.',
+        toUserFacingMessage(e, 'Không lấy được dữ liệu đơn hàng để đặt lại.'),
       );
     } finally {
       setReorderLoading(false);
@@ -199,18 +191,18 @@ export default function OrderDetailScreen() {
     try {
       const res = await ordersService.cancelOrder(orderId);
       if (!res.success) {
-        Alert.alert('Không thể huỷ đơn', res.message || 'Không thể huỷ đơn hàng lúc này.');
+        Alert.alert('Không thể huỷ đơn', toUserFacingMessage(res.message, 'Không thể huỷ đơn hàng lúc này.'));
         return;
       }
 
-      Alert.alert('Huỷ đơn thành công', res.message || 'Đơn hàng đã được huỷ.', [
+      Alert.alert('Huỷ đơn thành công', toUserFacingMessage(res.message, 'Đơn hàng đã được huỷ.'), [
         {
-          text: 'OK',
+          text: 'Đồng ý',
           onPress: () => router.replace('/(main)/orders'),
         },
       ]);
     } catch (e) {
-      Alert.alert('Không thể huỷ đơn', e instanceof Error ? e.message : 'Không thể huỷ đơn hàng lúc này.');
+      Alert.alert('Không thể huỷ đơn', toUserFacingMessage(e, 'Không thể huỷ đơn hàng lúc này.'));
     } finally {
       setCancelLoading(false);
     }

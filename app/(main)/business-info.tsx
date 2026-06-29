@@ -4,7 +4,9 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { api } from '@/src/lib/api';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 type SettingsResponse = {
   success: boolean;
@@ -30,14 +32,14 @@ export default function BusinessInfoScreen() {
     try {
       const res = await api.get<SettingsResponse>('/settings', { key: 'business_info' });
       if (!res.success) {
-        setError(res.message || 'Không tải được thông tin doanh nghiệp.');
+        setError(toUserFacingMessage(res.message, 'Không tải được thông tin doanh nghiệp.'));
         setBusinessInfo('');
         return;
       }
       const value = res.data?.settings?.find((s) => s.key === 'business_info')?.value?.trim() || '';
       setBusinessInfo(value || DEFAULT_BUSINESS_INFO);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Không tải được thông tin doanh nghiệp.');
+      setError(toUserFacingMessage(e, 'Không tải được thông tin doanh nghiệp.'));
       setBusinessInfo('');
     } finally {
       setLoading(false);
@@ -47,6 +49,8 @@ export default function BusinessInfoScreen() {
   useEffect(() => {
     void loadBusinessInfo();
   }, [loadBusinessInfo]);
+
+  useRefetchOnReconnect(loadBusinessInfo);
 
   const businessInfoHtml = useMemo(() => {
     const trimmed = businessInfo.trim();

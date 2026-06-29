@@ -121,7 +121,7 @@
       "successTitle": "Thành công",
       "successMessage": "Đơn {{orderNo}} đã được tạo.",
       "successMessageFallback": "Đơn hàng đã được tạo thành công.",
-      "ok": "OK"
+      "ok": "Đồng ý"
     },
     "errors": {
       "loadMeta": "Không tải được dữ liệu đơn hàng.",

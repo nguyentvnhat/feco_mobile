@@ -4,7 +4,9 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRefetchOnReconnect } from '@/hooks/use-network';
 import { authService } from '@/src/features/auth/auth.service';
+import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 type PolicyItem = {
   id: number;
@@ -19,53 +21,45 @@ export default function CommissionPolicyScreen() {
   const [policies, setPolicies] = useState<PolicyItem[]>([]);
   const [activePolicyId, setActivePolicyId] = useState<number | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-
-      async function loadPolicies() {
-        setLoading(true);
-        setError('');
-        try {
-          const res = await authService.me();
-          if (cancelled) return;
-          if (!res.success) {
-            setError(res.message || 'Không tải được chính sách hoa hồng.');
-            setPolicies([]);
-            setActivePolicyId(null);
-            return;
-          }
-
-          const rawPolicies = res.data?.agent?.agent_commission_policy ?? [];
-          const normalized = rawPolicies
-            .map((p) => ({
-              id: p.id,
-              policy_name: p.policy_name?.trim() || 'Chính sách',
-              description: p.description?.trim() || '<p>Chưa có mô tả chính sách.</p>',
-            }))
-            .filter((p) => Number.isFinite(p.id));
-
-          setPolicies(normalized);
-          setActivePolicyId(normalized[0]?.id ?? null);
-        } catch (e) {
-          if (!cancelled) {
-            setError(e instanceof Error ? e.message : 'Không tải được chính sách hoa hồng.');
-            setPolicies([]);
-            setActivePolicyId(null);
-          }
-        } finally {
-          if (!cancelled) {
-            setLoading(false);
-          }
-        }
+  const loadPolicies = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await authService.me();
+      if (!res.success) {
+        setError(toUserFacingMessage(res.message, 'Không tải được chính sách hoa hồng.'));
+        setPolicies([]);
+        setActivePolicyId(null);
+        return;
       }
 
+      const rawPolicies = res.data?.agent?.agent_commission_policy ?? [];
+      const normalized = rawPolicies
+        .map((p) => ({
+          id: p.id,
+          policy_name: p.policy_name?.trim() || 'Chính sách',
+          description: p.description?.trim() || '<p>Chưa có mô tả chính sách.</p>',
+        }))
+        .filter((p) => Number.isFinite(p.id));
+
+      setPolicies(normalized);
+      setActivePolicyId(normalized[0]?.id ?? null);
+    } catch (e) {
+      setError(toUserFacingMessage(e, 'Không tải được chính sách hoa hồng.'));
+      setPolicies([]);
+      setActivePolicyId(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
       void loadPolicies();
-      return () => {
-        cancelled = true;
-      };
-    }, []),
+    }, [loadPolicies]),
   );
+
+  useRefetchOnReconnect(loadPolicies);
 
   const activePolicy = useMemo(
     () => policies.find((p) => p.id === activePolicyId) ?? null,
