@@ -19,6 +19,16 @@ export class NetworkOfflineError extends Error {
   }
 }
 
+export class ServerUnreachableError extends Error {
+  readonly code = 'SERVER_UNREACHABLE' as const;
+
+  constructor(message = 'Không kết nối được máy chủ. Vui lòng thử lại sau.') {
+    super(message);
+    this.name = 'ServerUnreachableError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
 export class RequestTimeoutError extends Error {
   readonly code = 'TIMEOUT' as const;
 
@@ -132,10 +142,10 @@ apiClient.interceptors.response.use(
       if (error.code === 'ECONNABORTED') {
         return Promise.reject(new RequestTimeoutError());
       }
-      if (!getIsOnline() || error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      if (!getIsOnline()) {
         return Promise.reject(new NetworkOfflineError());
       }
-      return Promise.reject(new NetworkOfflineError('Unable to reach server'));
+      return Promise.reject(new ServerUnreachableError());
     }
 
     if (error.response?.status === 401) {

@@ -157,7 +157,10 @@ export default function OrderDetailScreen() {
     return getOrderStatusPresentation(order.order_status, order.order_label_status);
   }, [order]);
   const normalizedOrderStatus = (order?.order_status || '').trim().toLowerCase();
-  const hideCancelButton = normalizedOrderStatus === 'cancelled' || normalizedOrderStatus === 'returned';
+  const hideCancelButton =
+    normalizedOrderStatus !== 'new' ||
+    normalizedOrderStatus === 'cancelled' ||
+    normalizedOrderStatus === 'returned';
 
   async function handleReorder() {
     const orderId = Array.isArray(params.id) ? params.id[0] : params.id;

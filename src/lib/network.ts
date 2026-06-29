@@ -1,9 +1,9 @@
 import NetInfo, { NetInfoStateType, type NetInfoState } from '@react-native-community/netinfo';
 
 export function isOffline(state: NetInfoState): boolean {
-  if (state.isConnected === false) return true;
-  if (state.isInternetReachable === false) return true;
-  return false;
+  // Chỉ tin isConnected. isInternetReachable hay false trên WiFi LAN/dev (không có internet công cộng)
+  // và gây banner "mất mạng" dù WiFi vẫn dùng được API nội bộ.
+  return state.isConnected === false;
 }
 
 const defaultSnapshot: NetInfoState = {

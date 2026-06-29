@@ -132,6 +132,7 @@
     }
   },
   "network": {
-    "offline": "Không có kết nối mạng"
+    "offline": "Không có kết nối mạng",
+    "serverUnreachable": "Không kết nối được máy chủ"
   }
 }
