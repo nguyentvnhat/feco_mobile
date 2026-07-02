@@ -24,6 +24,7 @@ export type CreateOrderMetadataResponse = {
   success: boolean;
   message: string;
   data: {
+    agent_profile_id?: number | null;
     products: CreateMetadataProduct[];
     provinces: CreateMetadataProvince[];
     wards: CreateMetadataWard[];

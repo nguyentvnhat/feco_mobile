@@ -24,6 +24,8 @@ export default function AccountRoute() {
   const [email, setEmail] = useState('---');
   const [address, setAddress] = useState('---');
   const [logoPath, setLogoPath] = useState<string | null>(null);
+  const [contractCode, setContractCode] = useState<string | null>(null);
+  const [shortContractFileUrl, setShortContractFileUrl] = useState<string | null>(null);
 
   const loadMe = useCallback(async () => {
     try {
@@ -38,6 +40,8 @@ export default function AccountRoute() {
       setEmail(user?.email || '---');
       setAddress(agent?.full_address || '---');
       setLogoPath(agent?.logo_path || null);
+      setContractCode(agent?.contract_code?.trim() || null);
+      setShortContractFileUrl(agent?.short_contract_file_url || null);
     } finally {
       setLoading(false);
     }
@@ -50,6 +54,20 @@ export default function AccountRoute() {
   useRefetchOnReconnect(loadMe);
 
   const displayName = useMemo(() => name || 'FECO X3', [name]);
+  const contractCodeLabel = contractCode || 'Đang cập nhật';
+  const isContractCodePending = !contractCode;
+
+  function openShortContract() {
+    if (!shortContractFileUrl) return;
+    router.push({
+      pathname: '/(main)/agent-contract',
+      params: {
+        url: shortContractFileUrl,
+        title: 'Hợp đồng',
+        returnTo: 'account',
+      },
+    });
+  }
 
   async function handleLogout() {
     setLogoutLoading(true);
@@ -92,8 +110,25 @@ export default function AccountRoute() {
 
           <View className="mt-6 flex-row border-t border-slate-100 pt-4">
             <View className="flex-1 items-center border-r border-slate-100">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-300">CẤP BẬC</Text>
-              <Text className="mt-1 text-base font-semibold text-slate-800">{roleText}</Text>
+              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                MÃ HỢP ĐỒNG
+              </Text>
+              <View className="mt-1 flex-row items-center gap-2">
+                <Text
+                  className={`text-base font-semibold ${
+                    isContractCodePending ? 'text-slate-400' : 'text-slate-800'
+                  }`}>
+                  {contractCodeLabel}
+                </Text>
+                {shortContractFileUrl ? (
+                  <Pressable
+                    className="flex-row items-center rounded-full bg-green-50 px-2.5 py-1 active:bg-green-100"
+                    onPress={openShortContract}>
+                    <MaterialCommunityIcons name="file-eye-outline" size={16} color="#22c55e" />
+                    <Text className="ml-1 text-xs font-semibold text-green-600">Xem</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
             <View className="flex-1 items-center">
               <Text className="text-xs font-semibold uppercase tracking-wide text-slate-300">MÃ ĐẠI LÝ</Text>

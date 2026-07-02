@@ -84,6 +84,14 @@ export const authService = {
     return api.get<MeResponse>('/auth/me');
   },
 
+  async acknowledgeMobileWelcome(): Promise<{
+    success: boolean;
+    message: string;
+    data?: { requires_mobile_welcome?: boolean };
+  }> {
+    return api.post('/auth/acknowledge-mobile-welcome');
+  },
+
   async logout(): Promise<{ success: boolean; message: string }> {
     try {
       await api.post<unknown>('/auth/logout', {});

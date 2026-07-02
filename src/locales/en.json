@@ -19,6 +19,11 @@
       }
     }
   },
+  "welcome": {
+    "title": "Welcome to FECO X3",
+    "message": "Before you get started, please review your commission policy and agent contract in your profile to make sure your information is correct.",
+    "confirm": "Agree"
+  },
   "home": {
     "greeting": "Hello,",
     "monthRevenue": "Monthly Revenue",

@@ -19,6 +19,11 @@
       }
     }
   },
+  "welcome": {
+    "title": "Chào mừng đến với FECO X3",
+    "message": "Trước khi bắt đầu, vui lòng kiểm tra chính sách hoa hồng và hợp đồng đại lý trong mục Hồ sơ cá nhân để đảm bảo thông tin của bạn đã chính xác.",
+    "confirm": "Đồng ý"
+  },
   "home": {
     "greeting": "Xin chào,",
     "monthRevenue": "Doanh thu tháng này",

@@ -23,7 +23,11 @@ export type MeResponse = {
     };
     agent?: {
       id: number;
+      agent_profile_id?: number | null;
       code?: string | null;
+      contract_code?: string | null;
+      contract_file_url?: string | null;
+      short_contract_file_url?: string | null;
       business_name?: string | null;
       name?: string | null;
       logo_path?: string | null;
@@ -47,6 +51,8 @@ export type MeResponse = {
       currency?: string | null;
       /** true nếu đại lý có đại lý con — dùng để hiện tab Đại lý trên app */
       has_agent_children?: boolean;
+      /** true nếu cần hiện popup chào mừng lần đầu trên app */
+      requires_mobile_welcome?: boolean;
       agent_commission_policy?: Array<{
         id: number;
         policy_name?: string | null;

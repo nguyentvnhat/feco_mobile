@@ -54,16 +54,17 @@ function normalizeLocationCode(code: string | null | undefined) {
   return raw.replace(/^0+/, '') || '0';
 }
 
-function parseMoneyInput(value?: string | null) {
-  if (!value) return 0;
-  const digitsOnly = value.replace(/[^\d]/g, '');
-  if (!digitsOnly) return 0;
-  const parsed = Number.parseInt(digitsOnly, 10);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function pickFirstError(errors: Record<string, string>, key: string) {
   return errors[key] || '';
+}
+
+function formatProductUnitPriceLabel(
+  product: CreateMetadataProduct | null,
+  fallback: string,
+): string {
+  if (!product) return fallback;
+  const formatted = appendCurrency(product.unit_price, product.currency);
+  return formatted !== '--' ? formatted : fallback;
 }
 
 function normalizeLocationName(value: string) {
@@ -166,29 +167,6 @@ function buildAgentOrdererDefaults(
   return { ordererName, ordererPhone, address, provinceCode, provinceLabel, wardCode, wardLabel };
 }
 
-function extractNumericPrice(product: CreateMetadataProduct | null) {
-  if (!product) return 0;
-  const productRecord = product as unknown as Record<string, unknown>;
-  const pivot = (productRecord.pivot as Record<string, unknown> | undefined) ?? {};
-  const sourceCandidates: unknown[] = [
-    product.unit_price,
-    productRecord.price,
-    productRecord.unitPrice,
-    productRecord.product_price,
-    productRecord.list_price,
-    pivot.unit_price,
-    pivot.price,
-  ];
-  for (const candidate of sourceCandidates) {
-    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
-    if (typeof candidate === 'string') {
-      const parsed = parseMoneyInput(candidate);
-      if (parsed > 0) return parsed;
-    }
-  }
-  return 0;
-}
-
 const defaultTabBarStyle = {
   borderTopWidth: 1,
   borderTopColor: '#E2E8F0',
@@ -202,14 +180,6 @@ export default function CreateOrderScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ clone_payload?: string | string[]; clone_source_order_no?: string | string[] }>();
   const insets = useSafeAreaInsets();
-
-  const formatMoney = useCallback(
-    (value: number) => {
-      const formatted = new Intl.NumberFormat('vi-VN').format(value);
-      return t('createOrder.moneyFormat', { value: formatted });
-    },
-    [t],
-  );
 
   const localizeUnitDisplay = useCallback(
     (unit?: string | null) => {
@@ -327,10 +297,9 @@ export default function CreateOrderScreen() {
     const qty = Number.parseInt(quantity.trim(), 10);
     return Number.isFinite(qty) && qty > 0 ? qty : 0;
   }, [quantity]);
-  const selectedProductUnitPrice = useMemo(() => extractNumericPrice(selectedProduct), [selectedProduct]);
-  const estimatedSubtotal = useMemo(
-    () => Math.round(selectedProductUnitPrice * quantityNumber),
-    [selectedProductUnitPrice, quantityNumber],
+  const selectedProductUnitPriceLabel = useMemo(
+    () => formatProductUnitPriceLabel(selectedProduct, t('createOrder.noPrice')),
+    [selectedProduct, t],
   );
 
   const previewVatRateLabel = useMemo(() => {
@@ -389,12 +358,14 @@ export default function CreateOrderScreen() {
         setBootError(toUserFacingMessage(meRes.message, t('createOrder.errors.loadSeller')));
         return;
       }
-      if (!meRes.data?.agent?.id) {
+      const resolvedAgentProfileId =
+        metaRes.data?.agent_profile_id ?? meRes.data?.agent?.agent_profile_id ?? null;
+      if (!resolvedAgentProfileId) {
         setBootError(t('createOrder.errors.loadAgentProfile'));
         return;
       }
       setSellerUserId(meRes.data.user.id);
-      setAgentProfileId(meRes.data.agent.id);
+      setAgentProfileId(resolvedAgentProfileId);
       const loadedProducts = metaRes.data?.products ?? [];
       setProducts(loadedProducts);
       setProvinces(metaRes.data?.provinces ?? []);
@@ -776,6 +747,12 @@ export default function CreateOrderScreen() {
                   {isSingleProductCatalog && singleCatalogProduct ? (
                     <View className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3.5">
                       <Text className="text-base font-medium text-slate-900">{singleCatalogProduct.name}</Text>
+                      <Text className="mt-1 text-sm text-slate-500">
+                        {formatProductUnitPriceLabel(singleCatalogProduct, t('createOrder.noPrice'))}
+                        {singleCatalogProduct.sale_unit
+                          ? ` / ${localizeUnitDisplay(singleCatalogProduct.sale_unit)}`
+                          : ''}
+                      </Text>
                     </View>
                   ) : (
                     <>
@@ -814,6 +791,10 @@ export default function CreateOrderScreen() {
                                   className="border-b border-slate-200 px-3 py-3 active:bg-slate-100"
                                   onPress={() => pickProduct(item)}>
                                   <Text className="text-base font-medium text-slate-900">{item.name}</Text>
+                                  <Text className="mt-0.5 text-sm text-slate-500">
+                                    {formatProductUnitPriceLabel(item, t('createOrder.noPrice'))}
+                                    {item.sale_unit ? ` / ${localizeUnitDisplay(item.sale_unit)}` : ''}
+                                  </Text>
                                 </Pressable>
                               ))
                             )}
@@ -839,12 +820,11 @@ export default function CreateOrderScreen() {
                       keyboardType="number-pad"
                     />
                     <Text className="text-base text-slate-600">
-                      {selectedProduct ? localizeUnitDisplay(selectedProduct.sale_unit ?? 'box') : t('createOrder.unit')}
+                      {selectedProduct ? localizeUnitDisplay(selectedProduct.sale_unit ?? 'bar') : t('createOrder.unit')}
                     </Text>
                   </View>
                   <Text className={`text-xs text-slate-500 ${pickFirstError(fieldErrors, 'products.0.quantity') ? 'mb-2' : 'mb-4'}`}>
-                    {t('createOrder.unitPrice')}:{' '}
-                    {selectedProductUnitPrice > 0 ? formatMoney(selectedProductUnitPrice) : t('createOrder.noPrice')}
+                    {t('createOrder.unitPrice')}: {selectedProductUnitPriceLabel}
                   </Text>
                   {pickFirstError(fieldErrors, 'products.0.quantity') ? (
                     <Text className="mb-4 text-xs text-red-600">{pickFirstError(fieldErrors, 'products.0.quantity')}</Text>
@@ -1202,8 +1182,8 @@ export default function CreateOrderScreen() {
                       <Text className="text-base font-bold text-slate-900">
                         {previewSummary
                           ? appendCurrency(previewSummary.subtotal_amount, previewSummary.currency)
-                          : selectedProduct && quantityNumber > 0
-                            ? formatMoney(estimatedSubtotal)
+                          : previewLoading
+                            ? t('createOrder.previewCalculating')
                             : t('createOrder.previewUnavailable')}
                       </Text>
                     </View>
@@ -1259,9 +1239,7 @@ export default function CreateOrderScreen() {
                             )
                           : previewLoading
                             ? t('createOrder.previewCalculating')
-                            : selectedProduct && quantityNumber > 0
-                              ? formatMoney(estimatedSubtotal)
-                              : t('createOrder.previewUnavailable')}
+                            : t('createOrder.previewUnavailable')}
                       </Text>
                     </View>
                   </View>

@@ -235,7 +235,7 @@ export default function OrdersScreen() {
           <View className="mt-4 flex-row items-end justify-between border-t border-slate-100 pt-3">
             <View>
               <Text className="text-sm text-slate-400">{t('orders.total')}</Text>
-              <Text className="text-lg font-semibold text-slate-900">
+              <Text className="text-[0.9rem] font-semibold text-slate-900">
                 {appendCurrency(order.net_amount, order.currency)}
               </Text>
             </View>
