@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -22,9 +23,11 @@ import type {
   CreateMetadataProduct,
   CreateMetadataProvince,
   CreateMetadataWard,
+  PreviewAppliedTier,
   PreviewOrderSummary,
+  PreviewPolicyTier,
 } from '@/src/features/orders';
-import { appendCurrency, ordersService } from '@/src/features/orders';
+import { appendCurrency, formatTierLimitLabel, ordersService } from '@/src/features/orders';
 import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
 /** Ngày đặt theo lịch Việt Nam (không dùng UTC như toISOString). */
@@ -227,6 +230,9 @@ export default function CreateOrderScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [previewSummary, setPreviewSummary] = useState<PreviewOrderSummary | null>(null);
+  const [previewPolicyTiers, setPreviewPolicyTiers] = useState<PreviewPolicyTier[]>([]);
+  const [previewAppliedTiers, setPreviewAppliedTiers] = useState<PreviewAppliedTier[]>([]);
+  const [isDiscountDetailOpen, setIsDiscountDetailOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const formScrollRef = useRef<ScrollView>(null);
@@ -313,10 +319,43 @@ export default function CreateOrderScreen() {
     const parsed = Number(raw);
     return Number.isFinite(parsed) && parsed > 0;
   }, [previewSummary?.discount_amount]);
+  const discountDetailTiers = useMemo(() => {
+    if (previewAppliedTiers.length > 0) {
+      return previewAppliedTiers.map((tier, index) => ({
+        key: String(tier.commission_policy_tier_id ?? `applied-${index}`),
+        label: formatTierLimitLabel({
+          tierLimitLabel: tier.tier_limit_label,
+          minValue: tier.min_value,
+          maxValue: tier.max_value,
+          rewardPercent: tier.reward_percent,
+          rewardAmountPerUnit: tier.reward_amount_per_unit,
+        }),
+        amount: appendCurrency(
+          tier.discount_amount == null ? null : String(tier.discount_amount),
+          previewSummary?.currency,
+        ),
+      }));
+    }
+
+    return previewPolicyTiers.map((tier, index) => ({
+      key: String(tier.commission_policy_tier_id ?? `policy-${index}`),
+      label: formatTierLimitLabel({
+        tierLimitLabel: null,
+        minValue: tier.min_value,
+        maxValue: tier.max_value,
+        rewardPercent: tier.reward_percent,
+      }),
+      amount: null as string | null,
+    }));
+  }, [previewAppliedTiers, previewPolicyTiers, previewSummary?.currency]);
+  const hasDiscountTiers = discountDetailTiers.length > 0;
 
   const resetForm = useCallback(() => {
     previewRoundRef.current += 1;
     setPreviewSummary(null);
+    setPreviewPolicyTiers([]);
+    setPreviewAppliedTiers([]);
+    setIsDiscountDetailOpen(false);
     setPreviewLoading(false);
     setPreviewError('');
     setSelectedProduct(null);
@@ -459,6 +498,9 @@ export default function CreateOrderScreen() {
     if (!selectedProduct || quantityNumber <= 0) {
       previewRoundRef.current += 1;
       setPreviewSummary(null);
+      setPreviewPolicyTiers([]);
+      setPreviewAppliedTiers([]);
+      setIsDiscountDetailOpen(false);
       setPreviewLoading(false);
       setPreviewError('');
       return;
@@ -481,14 +523,27 @@ export default function CreateOrderScreen() {
           if (previewRoundRef.current !== round) return;
           if (res.success && res.data?.summary) {
             setPreviewSummary(res.data.summary);
+            const policyTiers = Array.isArray(res.data.policy_tiers) ? res.data.policy_tiers : [];
+            const appliedTiers = Array.isArray(res.data.applied_tiers) ? res.data.applied_tiers : [];
+            setPreviewPolicyTiers(policyTiers);
+            setPreviewAppliedTiers(appliedTiers);
+            if (policyTiers.length === 0 && appliedTiers.length === 0) {
+              setIsDiscountDetailOpen(false);
+            }
             setPreviewError('');
           } else {
             setPreviewSummary(null);
+            setPreviewPolicyTiers([]);
+            setPreviewAppliedTiers([]);
+            setIsDiscountDetailOpen(false);
             setPreviewError(toUserFacingMessage(res.message, t('createOrder.errors.previewFailed')));
           }
         } catch (e) {
           if (previewRoundRef.current !== round) return;
           setPreviewSummary(null);
+          setPreviewPolicyTiers([]);
+          setPreviewAppliedTiers([]);
+          setIsDiscountDetailOpen(false);
           setPreviewError(toUserFacingMessage(e, t('createOrder.errors.previewFailed')));
         } finally {
           if (previewRoundRef.current === round) {
@@ -1189,8 +1244,20 @@ export default function CreateOrderScreen() {
                     </View>
                   </View>
                   {previewHasDiscount ? (
-                    <View className="mt-1 flex-row items-center justify-between">
-                      <Text className="text-base text-green-600">{t('createOrder.discount')}</Text>
+                    <View className="mt-1 flex-row items-start justify-between">
+                      <View className="mr-3 shrink">
+                        <Text className="text-base text-green-600">{t('createOrder.discount')}</Text>
+                        {hasDiscountTiers ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            hitSlop={8}
+                            onPress={() => setIsDiscountDetailOpen(true)}>
+                            <Text className="mt-0.5 text-sm text-green-700 underline">
+                              {t('createOrder.discountViewDetail')}
+                            </Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                       <View className="flex-row items-center gap-2">
                         {previewLoading && !previewSummary ? (
                           <ActivityIndicator size="small" color="#64748b" />
@@ -1269,6 +1336,65 @@ export default function CreateOrderScreen() {
                 )}
               </Pressable>
             </View>
+
+            <Modal
+              visible={isDiscountDetailOpen && hasDiscountTiers}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setIsDiscountDetailOpen(false)}>
+              <View className="flex-1 items-center justify-center bg-black/45 px-6">
+                <Pressable
+                  accessibilityRole="button"
+                  className="absolute inset-0"
+                  onPress={() => setIsDiscountDetailOpen(false)}
+                />
+                <View className="w-full max-w-md rounded-2xl bg-white p-5">
+                  <Text className="text-lg font-semibold text-slate-900">
+                    {t('createOrder.discountDetailTitle')}
+                  </Text>
+                  {previewSummary?.discount_amount ? (
+                    <Text className="mt-1 text-sm text-green-700">
+                      {t('createOrder.discount')}{' '}
+                      -{appendCurrency(previewSummary.discount_amount, previewSummary.currency)}
+                    </Text>
+                  ) : null}
+
+                  <View className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+                    <ScrollView style={{ maxHeight: 320 }} nestedScrollEnabled>
+                      {discountDetailTiers.map((tier, index) => {
+                        const key = tier.key || `tier-${index}`;
+                        return (
+                          <View
+                            key={key}
+                            className={`bg-white px-3 py-3 ${
+                              index > 0 ? 'border-t border-slate-100' : ''
+                            }`}>
+                            <View className="flex-row items-start justify-between gap-3">
+                              <Text className="flex-1 text-base leading-6 text-slate-800">
+                                {tier.label || `Tier #${index + 1}`}
+                              </Text>
+                              {tier.amount ? (
+                                <Text className="text-base font-semibold text-green-600">
+                                  -{tier.amount}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+
+                  <Pressable
+                    className="mt-4 items-center rounded-xl bg-green-600 px-4 py-3 active:bg-green-700"
+                    onPress={() => setIsDiscountDetailOpen(false)}>
+                    <Text className="text-base font-semibold text-white">
+                      {t('createOrder.discountDetailClose')}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </Modal>
 
           </>
         )}

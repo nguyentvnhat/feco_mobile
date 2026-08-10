@@ -76,13 +76,41 @@ export type PreviewOrderSummary = {
   currency?: string;
 };
 
+export type PreviewPolicyTier = {
+  commission_policy_id?: number | null;
+  commission_policy_tier_id?: number | null;
+  tier_name?: string | null;
+  min_value?: string | number | null;
+  max_value?: string | number | null;
+  reward_percent?: string | number | null;
+  reward_amount?: string | number | null;
+};
+
+export type PreviewAppliedTier = {
+  commission_policy_id: number;
+  commission_policy_tier_id: number;
+  tier_name?: string | null;
+  tier_limit_label?: string | null;
+  min_value?: string | number | null;
+  max_value?: string | number | null;
+  qty_from: string | number;
+  qty_to: string | number;
+  applied_qty: string | number;
+  reward_percent: string | number;
+  reward_amount_per_unit?: number | null;
+  calculation_method?: string | null;
+  basis_amount: string | number;
+  discount_amount: string | number;
+};
+
 export type PreviewOrderApiResponse = {
   success: boolean;
   message: string;
   data?: {
     summary: PreviewOrderSummary;
     items?: unknown[];
-    applied_tiers?: unknown[];
+    policy_tiers?: PreviewPolicyTier[];
+    applied_tiers?: PreviewAppliedTier[];
     monthly_context?: unknown;
     policy?: unknown;
   };

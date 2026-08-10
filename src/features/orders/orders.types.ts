@@ -137,6 +137,23 @@ export type OrderDetailAddress = {
   province_name?: string | null;
 };
 
+export type OrderDetailAppliedTier = {
+  commission_policy_id: number;
+  commission_policy_tier_id: number;
+  tier_name?: string | null;
+  tier_limit_label?: string | null;
+  min_value?: string | number | null;
+  max_value?: string | number | null;
+  qty_from?: string | number;
+  qty_to?: string | number;
+  applied_qty?: string | number;
+  reward_percent?: string | number;
+  reward_amount_per_unit?: number | null;
+  calculation_method?: string | null;
+  basis_amount?: string | number;
+  discount_amount?: string | number;
+};
+
 export type OrderDetailData = {
   id: number;
   order_no: string;
@@ -160,6 +177,7 @@ export type OrderDetailData = {
   has_delivery_receipt_paths?: boolean;
   pickup?: OrderDetailAddress | null;
   products: OrderDetailProduct[];
+  applied_tiers?: OrderDetailAppliedTier[];
 };
 
 export type OrderDetailApiResponse = {

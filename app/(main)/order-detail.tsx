@@ -2,10 +2,16 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRefetchOnReconnect } from '@/hooks/use-network';
-import { formatOrderDateTime, getOrderStatusPresentation, ordersService } from '@/src/features/orders';
+import {
+  appendCurrency,
+  formatOrderDateTime,
+  formatTierLimitLabel,
+  getOrderStatusPresentation,
+  ordersService,
+} from '@/src/features/orders';
 import type { OrderDetailData, OrderDetailProduct } from '@/src/features/orders';
 import { toUserFacingMessage } from '@/src/lib/user-facing-error';
 
@@ -35,6 +41,7 @@ export default function OrderDetailScreen() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderDetailData | null>(null);
+  const [isDiscountDetailOpen, setIsDiscountDetailOpen] = useState(false);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
   const historySource = Array.isArray(params.historySource) ? params.historySource[0] : params.historySource;
   const agentId = Array.isArray(params.agentId) ? params.agentId[0] : params.agentId;
@@ -142,6 +149,24 @@ export default function OrderDetailScreen() {
     const parsed = Number(raw);
     return Number.isFinite(parsed) && parsed > 0;
   }, [order?.discount_amount]);
+  const discountDetailTiers = useMemo(() => {
+    const tiers = Array.isArray(order?.applied_tiers) ? order.applied_tiers : [];
+    return tiers.map((tier, index) => ({
+      key: String(tier.commission_policy_tier_id ?? `applied-${index}`),
+      label: formatTierLimitLabel({
+        tierLimitLabel: tier.tier_limit_label,
+        minValue: tier.min_value,
+        maxValue: tier.max_value,
+        rewardPercent: tier.reward_percent,
+        rewardAmountPerUnit: tier.reward_amount_per_unit,
+      }),
+      amount: appendCurrency(
+        tier.discount_amount == null ? null : String(tier.discount_amount),
+        order?.currency,
+      ),
+    }));
+  }, [order?.applied_tiers, order?.currency]);
+  const hasDiscountTiers = discountDetailTiers.length > 0;
   const vatRateLabel = useMemo(() => {
     const rate = order?.vat_rate_percent;
     if (rate == null || !Number.isFinite(rate)) return '0';
@@ -364,8 +389,18 @@ export default function OrderDetailScreen() {
               </Text>
             </View>
             {hasDiscount ? (
-              <View className="mt-1 flex-row items-center justify-between">
-                <Text className="text-base text-green-500">Chiết khấu</Text>
+              <View className="mt-1 flex-row items-start justify-between">
+                <View className="mr-3 shrink">
+                  <Text className="text-base text-green-500">Chiết khấu</Text>
+                  {hasDiscountTiers ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      onPress={() => setIsDiscountDetailOpen(true)}>
+                      <Text className="mt-0.5 text-sm text-green-700 underline">(xem chi tiết)</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
                 <Text className="text-lg font-semibold text-green-500">
                   -{withCurrencySuffix(order?.discount_amount)}
                 </Text>
@@ -420,6 +455,60 @@ export default function OrderDetailScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        <Modal
+          visible={isDiscountDetailOpen && hasDiscountTiers}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsDiscountDetailOpen(false)}>
+          <View className="flex-1 items-center justify-center bg-black/45 px-6">
+            <Pressable
+              accessibilityRole="button"
+              className="absolute inset-0"
+              onPress={() => setIsDiscountDetailOpen(false)}
+            />
+            <View className="w-full max-w-md rounded-2xl bg-white p-5">
+              <Text className="text-lg font-semibold text-slate-900">Chi tiết chiết khấu</Text>
+              {order?.discount_amount ? (
+                <Text className="mt-1 text-sm text-green-700">
+                  Chiết khấu: -{withCurrencySuffix(order.discount_amount)}
+                </Text>
+              ) : null}
+
+              <View className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+                <ScrollView style={{ maxHeight: 320 }} nestedScrollEnabled>
+                  {discountDetailTiers.map((tier, index) => {
+                    const key = tier.key || `tier-${index}`;
+                    return (
+                      <View
+                        key={key}
+                        className={`bg-white px-3 py-3 ${
+                          index > 0 ? 'border-t border-slate-100' : ''
+                        }`}>
+                        <View className="flex-row items-start justify-between gap-3">
+                          <Text className="flex-1 text-base leading-6 text-slate-800">
+                            {tier.label || `Tier #${index + 1}`}
+                          </Text>
+                          {tier.amount ? (
+                            <Text className="text-base font-semibold text-green-600">
+                              -{tier.amount}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              <Pressable
+                className="mt-4 items-center rounded-xl bg-green-600 px-4 py-3 active:bg-green-700"
+                onPress={() => setIsDiscountDetailOpen(false)}>
+                <Text className="text-base font-semibold text-white">Đóng</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );

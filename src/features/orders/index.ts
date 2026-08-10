@@ -1,5 +1,5 @@
 export { ordersService } from './orders.service';
-export { appendCurrency, formatOrderDateTime, mapOrderToRecentRow } from './orderDisplay';
+export { appendCurrency, formatOrderDateTime, formatTierLimitLabel, mapOrderToRecentRow } from './orderDisplay';
 export { getOrderStatusPresentation } from './orderStatus';
 export type {
   OrderListItem,
@@ -13,6 +13,7 @@ export type {
   CommissionItem,
   DestroyOrderApiResponse,
   OrderDetailApiResponse,
+  OrderDetailAppliedTier,
   OrderDetailData,
   OrderDetailProduct,
 } from './orders.types';
@@ -25,8 +26,10 @@ export type {
   CreateMetadataProvince,
   CreateMetadataWard,
   CreateOrderMetadataResponse,
+  PreviewAppliedTier,
   PreviewOrderApiResponse,
   PreviewOrderPayload,
   PreviewOrderSummary,
+  PreviewPolicyTier,
   StoreOrderPayload,
 } from './orderCreate.types';

@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "FecoX3",
+    "name": "FECO X3",
     "slug": "feco_mobile",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "fecomobile",
@@ -10,11 +10,11 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "company.fecox3.com",
+      "bundleIdentifier": "ccompany.fecox3.com",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "12"
+      "buildNumber": "13"
     },
     "android": {
       "adaptiveIcon": {
